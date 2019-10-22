@@ -2,13 +2,13 @@
 // Version  0.2
 #include <stdio.h>
 #include <stdlib.h>
-#include <limit.h>
+#include <limits.h>
 #include "mkl.h"
 #include "retina.h"
 
 
-void mk_retina(RetinaParam *rp, RetinaConnections *rc, width, double *scene,
-                int max_types, int max_intvl, int max_rf_size){
+void mk_retina(RetinaParam *rp, RetinaConnections *rc, int width, double *scene,
+                int max_types, double max_intvl, double max_rf_size){
     // Random stream init
     VSLStreamStatePtr stream;
     vslNewStream(&stream, VSL_BRNG_MT19937, 1);
@@ -72,8 +72,17 @@ void mk_retina(RetinaParam *rp, RetinaConnections *rc, width, double *scene,
 void rm_retina(RetinaParam *rp, RetinaConnections *rc){
     free(rp->polarities);
     free(rp->axons);
-    free(rp->ndrites);
+    free(rp->dendrites);
     free(rp->intvl);
     free(rp->rf_radii);
     free(rc->w_coef);
+}
+
+int main(){
+    RetinaParam *rp = malloc(sizeof(RetinaParam));
+    RetinaConnections *rc = malloc(sizeof(RetinaConnections));
+    mk_retina(rp, rc, 20, NULL, 5, 10, 10);
+    rm_retina(rp, rc);
+    free(rp);
+    free(rc);
 }
