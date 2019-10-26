@@ -2,13 +2,13 @@
 // Version  0.1
 #ifndef RETINA_H
 #define RETINA_H
-extern const int N_FACTORS = 5;
-extern const int WIDTH = 50;
+const int N_FACTORS = 5;
+const int WIDTH = 50;
 
 typedef struct Connections{
-    int a;      // type a
-    int b;      // type b
-    double *w;  // ij is the weight from j of type a to i of type b
+    int from;
+    int to;
+    double *w;  // ij is the weight from j of type "from" to i of type "to"
 } Connections;
 
 typedef struct RetinaParam{
@@ -20,7 +20,7 @@ typedef struct RetinaParam{
 
     double *intvl;      // Intervals between interneurons of the same types
     int n_connections;  // Number of connection matrices
-    Connections **c;    // Array of connection matrices
+    Connections *c;     // Array of connection matrices
 
     double score;   // Fitness score, the larger the better
 } RetinaParam;
