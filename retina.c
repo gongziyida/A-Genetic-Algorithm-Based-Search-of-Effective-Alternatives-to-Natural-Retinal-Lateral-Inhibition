@@ -3,8 +3,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <limits.h>
 #include "mkl.h"
 #include "retina.h"
+
+double affinity(int i, int j){
+    double counter = 32.0;
+    int buff = rp->axons[j] ^ rp->dendrites[i];
+    while (buff != 0){
+        if (buff & 0x80000000) counter--;
+        buff <<= 1;
+    }
+    return counter / 32;
+}
 
 void mk_connection(RetinaParam *rp){
     double affinityij, affinityji;
@@ -37,10 +48,8 @@ void mk_connection(RetinaParam *rp){
             rp->c[kji].w = malloc(size);
 
             // Calculate affinity between -1 and 1
-            affinityij = cblas_ddot(N_FACTORS, &rp->axons[j * N_FACTORS], 1,
-                                    &rp->dendrites[i * N_FACTORS], 1) / N_FACTORS;
-            affinityji = cblas_ddot(N_FACTORS, &rp->axons[i * N_FACTORS], 1,
-                                    &rp->dendrites[j * N_FACTORS], 1) / N_FACTORS;
+            affinityij = affinity(i, j);
+            affinityji = affinity(j, i);
 
             intvli = rp->intvl[i];
             intvlj = rp->intvl[j];
@@ -50,8 +59,8 @@ void mk_connection(RetinaParam *rp){
                 for (q = 0; q < nj; q++){
                     d = exp(- decay * abs(intvli * (p + 1) - intvlj * (q + 1)) / WIDTH);
                     if (d >= 1e-4){
-                        rp->c[kij].w[p * nj + q] = d * affinityij;
-                        rp->c[kji].w[q * ni + p] = d * affinityji;
+                        rp->c[kij].w[p * nj + q] = d * rp->polarities[j] * affinityij;
+                        rp->c[kji].w[q * ni + p] = d * rp->polarities[i] * affinityji;
                     } else{ // d < 1e-4 or is nan (overflow)
                         rp->c[kij].w[p * nj + q] = 0;
                         rp->c[kji].w[q * ni + p] = 0;
@@ -62,7 +71,7 @@ void mk_connection(RetinaParam *rp){
     }
 }
 
-void mk_retina(RetinaParam *rp, int max_types, int max_cells){
+void mk_retina(RetinaParam *rp){
     // Random stream init
     VSLStreamStatePtr stream;
     vslNewStream(&stream, VSL_BRNG_MT19937, 1);
@@ -70,31 +79,35 @@ void mk_retina(RetinaParam *rp, int max_types, int max_cells){
     vdRngUniform(VSL_RNG_METHOD_UNIFORM_STD, stream, 1, &rp->decay, 0, WIDTH);
 
     int n; // n_types
-    viRngUniform(VSL_RNG_METHOD_UNIFORM_STD, stream, 1, &n, 2, max_types + 1);
+    viRngUniform(VSL_RNG_METHOD_UNIFORM_STD, stream, 1, &n, 2, MAX_TYPES + 1);
 
     rp->n_types = n;
     rp->n_connections = n * n;
 
-    rp->axons = malloc(n * N_FACTORS * sizeof(double));
-    vdRngUniform(VSL_RNG_METHOD_UNIFORM_STD, stream, n * N_FACTORS, rp->axons, -1, 1);
+    rp->axons = malloc(MAX_TYPES * sizeof(double));
+    viRngUniform(VSL_RNG_METHOD_UNIFORM_STD, stream, n * N_FACTORS, rp->axons, INT_MIN, INT_MAX);
 
-    rp->dendrites = malloc(n * N_FACTORS * sizeof(double));
+    rp->dendrites = malloc(MAX_TYPES * sizeof(double));
+    viRngUniform(VSL_RNG_METHOD_UNIFORM_STD, stream, n * N_FACTORS, rp->dendrites, INT_MIN, INTMAX);
+
+    rp->polarities = malloc(MAX_TYPES * sizeof(double));
     vdRngUniform(VSL_RNG_METHOD_UNIFORM_STD, stream, n * N_FACTORS, rp->dendrites, -1, 1);
 
-    rp->n_cells = malloc(n * sizeof(int));
-    viRngUniform(VSL_RNG_METHOD_UNIFORM_STD, stream, n, rp->n_cells, 1, max_cells);
-    rp->n_cells[0] = max_cells;
+    rp->n_cells = malloc(MAX_TYPES * sizeof(int));
+    viRngUniform(VSL_RNG_METHOD_UNIFORM_STD, stream, n, rp->n_cells, 1, MAX_CELLS);
+    rp->n_cells[0] = MAX_CELLS;
 
-    rp->intvl = malloc(n * sizeof(double));
+    rp->intvl = malloc(MAX_TYPES * sizeof(double));
     for (int i = 0; i < n; i++) rp->intvl[i] = (double) WIDTH / (rp->n_cells[i] + 1.0);
 
-    rp->c = malloc(rp->n_connections * sizeof(Connections));
+    rp->c = malloc(MAX_TYPES * MAX_TYPES * sizeof(Connections));
     mk_connection(rp);
 }
 
 void rm_retina(RetinaParam *rp){
     free(rp->axons);
     free(rp->dendrites);
+    free(rp->polarities)
     free(rp->n_cells);
     free(rp->intvl);
 
@@ -124,7 +137,7 @@ void print_connections(RetinaParam *rp, FILE *f) {
 
 int main(){
     RetinaParam *rp = malloc(sizeof(RetinaParam));
-    mk_retina(rp, 5, 10);
+    mk_retina(rp);
     print_connections(rp, stdout);
     rm_retina(rp);
     free(rp);

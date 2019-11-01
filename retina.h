@@ -2,7 +2,8 @@
 // Version  0.1
 #ifndef RETINA_H
 #define RETINA_H
-const int N_FACTORS = 5;
+const int MAX_TYPES = 5;
+const int MAX_CELLS = 10;
 const int WIDTH = 50;
 
 typedef struct Connections{
@@ -12,10 +13,11 @@ typedef struct Connections{
 } Connections;
 
 typedef struct RetinaParam{
-    double decay;       // Decadence of weight w.r.t. distance
+    double decay;       // Decay of weight w.r.t. distance
     int n_types;        // Number of types of interneurons + one type of receptor
-    double *axons;      // Axon descriptors of interneuron types
-    double *dendrites;  // Dentrite descriptors of interneuron types
+    int *axons;         // Binary axon descriptors of interneuron types
+    int *dendrites;     // Binary dendrite descriptors of interneuron types
+    double *polarities; // Polarities of interneuron types
     int *n_cells;       // Number of cells for each type
 
     double *intvl;      // Intervals between interneurons of the same types

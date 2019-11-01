@@ -8,11 +8,15 @@
 #include <time.h>
 #include <math.h>
 #include <limits.h>
+#include <string.h>
 
 #define
 
 /* Globals */
-int MAX_ITERATIONS, NUM_INDIVIDUALS, SELECTIVITY;
+int MAX_ITERATIONS, NUM_INDIVIDUALS, NUM_ELITES;
+RetinaParam *rps;   // Individual space
+int *p1, *p2;       // Parent index spaces
+VSLStreamStatePtr STREAM; // Random generator stream
 
 int comparator(const void *rp1, const void *rp2){
     /*
@@ -23,29 +27,80 @@ int comparator(const void *rp1, const void *rp2){
     return rp2->score - rp1->score;
 }
 
-void selection(RetinaParam **rps){
+void selection(){
+    int rival1, rival2;
+
+    for (int i = 0; i < NUM_INDIVIDUALS - NUM_ELITES; i++){
+        rival1 = rand() % NUM_INDIVIDUALS;
+        rival2 = rand() % NUM_INDIVIDUALS;
+
+        if (rand() % 100 < 75){
+            p1[i] = (rps[rival1].score > rps[rival2].score)? rival1 : rival2;
+        } else {
+            p1[i] = (rps[rival1].score > rps[rival2].score)? rival2 : rival1;
+        }
+
+        do{ // Avoid self-crossover
+            rival1 = rand() % NUM_INDIVIDUALS;
+            rival2 = rand() % NUM_INDIVIDUALS;
+
+        } while (rival1 == p1[i] || rival2 == p1[i]);
+
+        if (rand() % 100 < 75){
+            p2[i] = (rps[rival1].score > rps[rival2].score)? rival1 : rival2;
+        } else {
+            p2[i] = (rps[rival1].score > rps[rival2].score)? rival2 : rival1;
+        }
+    }
+}
+
+void crossover(){
     // Sort the retinas
-	qsort(*rps, NUM_INDIVIDUALS, sizeof(RetinaParam), comparator);
+    qsort(rps, NUM_INDIVIDUALS, sizeof(RetinaParam), comparator);
+
+    RetinaParam *children = &rps[NUM_ELITES]; // Index start from NUM_ELITES
+
+    int p1i, p2i, n;
+
+    // Single-point crossover
+    for (int i = 0; i < NUM_INDIVIDUALS - NUM_ELITES; i++){
+        if (rand() % 100 < 50) {
+            p1i = p1[i];
+            p2i = p2[i];
+        } else{
+            p1i = p2[i];
+            p2i = p1[i];
+        }
+
+        n = rps[p2i].n_types;
+
+        rps[i+NUM_ELITES].decay = rps[p1i].decay;
+        rps[i+NUM_ELITES].n_types = n;
+        strncpy(rps[i+NUM_ELITES].axons, rps[p2i].axons, MAX_TYPES);
+        strncpy(rps[i+NUM_ELITES].dendrites, rps[p2i].dendrites, MAX_TYPES);
+        strncpy(rps[i+NUM_ELITES].polarities, rps[p2i].polarities, MAX_TYPES);
+        strncpy(rps[i+NUM_ELITES].n_cells, rps[p2i].n_cells, MAX_TYPES);
+    }
 }
 
-void crossover(RetinaParam **rps){
-    // TODO: Implement crossover over all parents, with chance by score or rank
-}
 
+void mutation(){
+    double buff[rps[i+NUM_ELITES].n_types * N_FACTORS];
+    for (int i = NUM_ELITES; i < NUM_INDIVIDUALS; i++){
+        if (rand() % 100 < 20){ // Mutate decay with probability 0.2
+            (VSL_RNG_METHOD_GAUSSIAN_BOXMULLER, STREAM,
+                    1, &rps[i+NUM_ELITES].decay, rps[i+NUM_ELITES].decay, WIDTH/20);
+        }
+        // TODO: Mutate the binaries
 
-void mutation(RetinaParam **rps){
-    // TODO: Define the range/attribute of mutation on each parameter and implement the mutation
-}
-
-void run(){
-    // TODO: Integrate the above
+    }
 }
 
 
 int main(int argc, char **argv){
-	if (argc > 4){
+	if (argc > 5){
 		fprintf(stderr,
-			"retina <MAX ITERATIONS> <NUM INDIVIDUALS> <WIDTH>\n");
+			"retina <MAX ITERATIONS> <NUM INDIVIDUALS> <NUM_ELITES> <WIDTH>\n");
 		exit(EXIT_FAILURE);
 	}
 
@@ -62,10 +117,30 @@ int main(int argc, char **argv){
 	if (argc > 2)	NUM_INDIVIDUALS = atoi(argv[2]);
 	else 			NUM_INDIVIDUALS = 100;
 
-	// Width of the retina
-	if (argc > 3)	WIDTH = atoi(argv[4]);
-	else 			WIDTH = 50;
+	// Number of individuals in each epoch
+    if (argc > 3)	NUM_ELITES = atoi(argv[3]);
+    else 			NUM_ELITES = 25;
 
+    vslNewStream(&STREAM, VSL_BRNG_MT19937, 1);
+
+    int i;
+
+	// Make individual space
+	RetinaParam *rps = malloc(NUM_INDIVIDUALS * sizeof(RetinaParam));
+	for (i = 0; i < NUM_INDIVIDUALS; i++){
+	    mk_retina(&rps[i]);
+	}
+
+	for (i = 0; i < MAX_ITERATIONS; i++){
+	    selection();
+	    crossover();
+	    mutation();
+	}
+
+	for (i = 0; i < NUM_INDIVIDUALS; i++){
+        rm_retina(&rps[i]);
+    }
+	free(rps);
 
 	return 0;
 }

@@ -1,5 +1,4 @@
-//
-// Created by ziyi on 10/30/19.
-//
+// Author   Ziyi Gong
+// Version  0.1
 
 #include "perceptron.h"

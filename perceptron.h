@@ -1,6 +1,5 @@
-//
-// Created by ziyi on 10/30/19.
-//
+// Author   Ziyi Gong
+// Version  0.1
 
 #ifndef MY_PROJECT_PERCEPTRON_H
 #define MY_PROJECT_PERCEPTRON_H
