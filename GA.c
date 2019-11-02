@@ -10,8 +10,6 @@
 #include <limits.h>
 #include <string.h>
 
-#define
-
 /* Globals */
 int MAX_ITERATIONS, NUM_INDIVIDUALS, NUM_ELITES;
 RetinaParam *rps;   // Individual space
@@ -63,7 +61,8 @@ void crossover(){
     int p1i, p2i, n;
 
     // Single-point crossover
-    for (int i = 0; i < NUM_INDIVIDUALS - NUM_ELITES; i++){
+    int j = NUM_ELITES;
+    for (int i = 0; i < NUM_INDIVIDUALS - NUM_ELITES; i++, j++){
         if (rand() % 100 < 50) {
             p1i = p1[i];
             p2i = p2[i];
@@ -74,25 +73,42 @@ void crossover(){
 
         n = rps[p2i].n_types;
 
-        rps[i+NUM_ELITES].decay = rps[p1i].decay;
-        rps[i+NUM_ELITES].n_types = n;
-        strncpy(rps[i+NUM_ELITES].axons, rps[p2i].axons, MAX_TYPES);
-        strncpy(rps[i+NUM_ELITES].dendrites, rps[p2i].dendrites, MAX_TYPES);
-        strncpy(rps[i+NUM_ELITES].polarities, rps[p2i].polarities, MAX_TYPES);
-        strncpy(rps[i+NUM_ELITES].n_cells, rps[p2i].n_cells, MAX_TYPES);
+        rps[j].decay = rps[p1i].decay;
+        rps[j].n_types = n;
+        strncpy(rps[j].axons, rps[p2i].axons, MAX_TYPES);
+        strncpy(rps[j].dendrites, rps[p2i].dendrites, MAX_TYPES);
+        strncpy(rps[j].polarities, rps[p2i].polarities, MAX_TYPES);
+        strncpy(rps[j].n_cells, rps[p2i].n_cells, MAX_TYPES);
     }
 }
 
 
 void mutation(){
-    double buff[rps[i+NUM_ELITES].n_types * N_FACTORS];
+    int n, j, chance;
     for (int i = NUM_ELITES; i < NUM_INDIVIDUALS; i++){
-        if (rand() % 100 < 20){ // Mutate decay with probability 0.2
-            (VSL_RNG_METHOD_GAUSSIAN_BOXMULLER, STREAM,
-                    1, &rps[i+NUM_ELITES].decay, rps[i+NUM_ELITES].decay, WIDTH/20);
-        }
-        // TODO: Mutate the binaries
+        n = rps[i].n_types;
+        vdRngGaussian(VSL_RNG_METHOD_GAUSSIAN_BOXMULLER, STREAM,
+                1, &rps[i].decay, rps[i].decay, WIDTH/20);
 
+        // Randomly change one of the axon descriptors (same for dendrites)
+        rps[i].axons[rand() % n] ^= (int)(rand() - RAND_MAX);
+        rps[i].dendrites[rand() % n] ^= (int)(rand() - RAND_MAX);
+
+        for (j = 1; j < n; j++){ // Skip receptors
+            // Mutate polarities, in very small amount per time
+            vdRngGaussian(VSL_RNG_METHOD_GAUSSIAN_BOXMULLER, STREAM,
+                          1, &rps[i].polarities[j], rps[i].polarities[j], 0.01);
+
+            chance = rand() % 100;
+            // 50% probability the number of cells will decrease/increase by 1
+            if (chance < 25) {
+                rps[i].n_cells[j] += 1;
+                if (rps[i].n_cells[j] > MAX_CELLS) rps[i].n_cells[j]--;
+            } else if (chance < 50){
+                rps[i].n_cells[j] -= 1;
+//                if (rps[i].n_cells[j] == 0) rps[i].n_cells[j]++;
+            }
+        }
     }
 }
 
@@ -123,19 +139,24 @@ int main(int argc, char **argv){
 
     vslNewStream(&STREAM, VSL_BRNG_MT19937, 1);
 
-    int i;
+    int i, j;
 
-	// Make individual space
+	// Initialize individual space
 	RetinaParam *rps = malloc(NUM_INDIVIDUALS * sizeof(RetinaParam));
 	for (i = 0; i < NUM_INDIVIDUALS; i++){
-	    mk_retina(&rps[i]);
+	    init_retina(&rps[i]);
 	}
 
 	for (i = 0; i < MAX_ITERATIONS; i++){
 	    selection();
 	    crossover();
 	    mutation();
+	    for (j = 0; j < NUM_INDIVIDUALS; j++){
+            mk_connection(&rps[j]);
+        }
 	}
+
+	// TODO: Output data
 
 	for (i = 0; i < NUM_INDIVIDUALS; i++){
         rm_retina(&rps[i]);

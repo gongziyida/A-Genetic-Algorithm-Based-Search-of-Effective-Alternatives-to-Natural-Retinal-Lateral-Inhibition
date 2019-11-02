@@ -23,13 +23,20 @@ void mk_connection(RetinaParam *rp){
     int n = rp->n_types;
     double decay = rp->decay;
     int ni, nj; // Number of cells
-    double intvli, intvlj; // Intervals of i, j
     double d; // Distance-dependent weight factor
-    int size; // Size to malloc
+
+    // Calculate the intervals first
+    for (i = 0; i < n; i++)
+        rp->intvl[i] = (double) WIDTH / (rp->n_cells[i] + 1.0);
 
     // Make the weight from j to i
     for (i = 0; i < n - 1; i++){
         for (j = i + 1; j < n; j++){
+            ni = rp->n_cells[i];
+            nj = rp->n_cells[j];
+
+            if (ni == 0 || nj == 0) continue;
+
             kij = i * n + j;
             kji = j * n + i;
 
@@ -39,25 +46,14 @@ void mk_connection(RetinaParam *rp){
             rp->c[kji].from = i;
             rp->c[kji].to = j;
 
-            ni = rp->n_cells[i];
-            nj = rp->n_cells[j];
-
-            size = ni * nj * sizeof(double);
-
-            rp->c[kij].w = malloc(size);
-            rp->c[kji].w = malloc(size);
-
             // Calculate affinity between -1 and 1
             affinityij = affinity(i, j);
             affinityji = affinity(j, i);
 
-            intvli = rp->intvl[i];
-            intvlj = rp->intvl[j];
-
             // Calculate decay * affinity / distance
             for (p = 0; p < ni; p++){
                 for (q = 0; q < nj; q++){
-                    d = exp(- decay * abs(intvli * (p + 1) - intvlj * (q + 1)) / WIDTH);
+                    d = exp(-decay * abs(rp->intvl[i] * (p + 1) - rp->intvl[j] * (q + 1)) / WIDTH);
                     if (d >= 1e-4){
                         rp->c[kij].w[p * nj + q] = d * rp->polarities[j] * affinityij;
                         rp->c[kji].w[q * ni + p] = d * rp->polarities[i] * affinityji;
@@ -71,7 +67,7 @@ void mk_connection(RetinaParam *rp){
     }
 }
 
-void mk_retina(RetinaParam *rp){
+void init_retina(RetinaParam *rp){
     // Random stream init
     VSLStreamStatePtr stream;
     vslNewStream(&stream, VSL_BRNG_MT19937, 1);
@@ -98,9 +94,20 @@ void mk_retina(RetinaParam *rp){
     rp->n_cells[0] = MAX_CELLS;
 
     rp->intvl = malloc(MAX_TYPES * sizeof(double));
-    for (int i = 0; i < n; i++) rp->intvl[i] = (double) WIDTH / (rp->n_cells[i] + 1.0);
 
     rp->c = malloc(MAX_TYPES * MAX_TYPES * sizeof(Connections));
+
+    int i, j, kij, kji;
+    int size = MAX_CELLS * MAX_CELLS * sizeof(double);
+    for (i = 0; i < MAX_TYPES - 1; i++) {
+        for (j = i + 1; j < MAX_TYPES; j++) {
+            kij = i * n + j;
+            kji = j * n + i;
+            rp->c[kij].w = malloc(size);
+            rp->c[kji].w = malloc(size);
+        }
+    }
+
     mk_connection(rp);
 }
 
@@ -137,7 +144,7 @@ void print_connections(RetinaParam *rp, FILE *f) {
 
 int main(){
     RetinaParam *rp = malloc(sizeof(RetinaParam));
-    mk_retina(rp);
+    init_retina(rp);
     print_connections(rp, stdout);
     rm_retina(rp);
     free(rp);
