@@ -24,14 +24,18 @@ void test(){
     double w[MAX_CELLS + 1];
     double o, coef;
 
-    int i, j, t;
+    int i, j, t, ki, kj;
     for (i = 0; i < NUM_INDIVIDUALS; i++){
         // Randomize w every time
         vdRngUniform(VSL_RNG_METHOD_UNIFORM_STD, STREAM, MAX_CELLS, w, -1, 1);
 
         for (j = 0; j < NUM_TRAIN; j++) {
             for (t = 0; t < SIM_TIME; t++){
-                // TODO: retina processing  
+                for (ki = 0; ki < rps[i].n_types; ki++){
+                    for (kj = 0; kj < rps[i].n_types; kj++){
+                        // TODO: retina processing
+                    }
+                }
             }
 
             clbas_ddot(MAX_CELLS, w, 1, rps[i].states, 1); // net = w^T x

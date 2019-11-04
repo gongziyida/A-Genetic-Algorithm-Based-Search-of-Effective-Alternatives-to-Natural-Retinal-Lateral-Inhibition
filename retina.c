@@ -37,8 +37,8 @@ void mk_connection(RetinaParam *rp){
 
             if (ni == 0 || nj == 0) continue;
 
-            kij = i * n + j;
-            kji = j * n + i;
+            kij = j * n + i;
+            kji = i * n + j;
 
             rp->c[kij].from = j;
             rp->c[kij].to = i;
@@ -93,7 +93,7 @@ void init_retina(RetinaParam *rp){
     viRngUniform(VSL_RNG_METHOD_UNIFORM_STD, stream, n, rp->n_cells, 1, MAX_CELLS);
     rp->n_cells[0] = MAX_CELLS;
 
-    rp->states = mkl_malloc(MAX_CELLS * sizeof(double), 64);
+    rp->states = mkl_malloc(2 * MAX_TYPES * MAX_CELLS * sizeof(double), 64);
 
     rp->intvl = mkl_malloc(MAX_TYPES * sizeof(double), 64);
 
