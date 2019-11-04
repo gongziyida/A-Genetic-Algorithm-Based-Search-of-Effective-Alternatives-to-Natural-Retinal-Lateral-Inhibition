@@ -80,22 +80,22 @@ void init_retina(RetinaParam *rp){
     rp->n_types = n;
     rp->n_connections = n * n;
 
-    rp->axons = malloc(MAX_TYPES * sizeof(double));
+    rp->axons = mkl_malloc(MAX_TYPES * sizeof(double), 64);
     viRngUniform(VSL_RNG_METHOD_UNIFORM_STD, stream, n * N_FACTORS, rp->axons, INT_MIN, INT_MAX);
 
-    rp->dendrites = malloc(MAX_TYPES * sizeof(double));
+    rp->dendrites = mkl_malloc(MAX_TYPES * sizeof(double), 64);
     viRngUniform(VSL_RNG_METHOD_UNIFORM_STD, stream, n * N_FACTORS, rp->dendrites, INT_MIN, INTMAX);
 
-    rp->polarities = malloc(MAX_TYPES * sizeof(double));
+    rp->polarities = mkl_malloc(MAX_TYPES * sizeof(double), 64);
     vdRngUniform(VSL_RNG_METHOD_UNIFORM_STD, stream, n * N_FACTORS, rp->dendrites, -1, 1);
 
-    rp->n_cells = malloc(MAX_TYPES * sizeof(int));
+    rp->n_cells = mkl_malloc(MAX_TYPES * sizeof(int), 64);
     viRngUniform(VSL_RNG_METHOD_UNIFORM_STD, stream, n, rp->n_cells, 1, MAX_CELLS);
     rp->n_cells[0] = MAX_CELLS;
 
-    rp->states = malloc(MAX_CELLS * sizeof(double));
+    rp->states = mkl_malloc(MAX_CELLS * sizeof(double), 64);
 
-    rp->intvl = malloc(MAX_TYPES * sizeof(double));
+    rp->intvl = mkl_malloc(MAX_TYPES * sizeof(double), 64);
 
     rp->c = malloc(MAX_TYPES * MAX_TYPES * sizeof(Connections));
 
@@ -105,8 +105,8 @@ void init_retina(RetinaParam *rp){
         for (j = i + 1; j < MAX_TYPES; j++) {
             kij = i * n + j;
             kji = j * n + i;
-            rp->c[kij].w = malloc(size);
-            rp->c[kji].w = malloc(size);
+            rp->c[kij].w = mkl_malloc(size, 64);
+            rp->c[kji].w = mkl_malloc(size, 64);
         }
     }
 
@@ -114,13 +114,14 @@ void init_retina(RetinaParam *rp){
 }
 
 void rm_retina(RetinaParam *rp){
-    free(rp->axons);
-    free(rp->dendrites);
-    free(rp->polarities)
-    free(rp->n_cells);
-    free(rp->intvl);
+    mkl_free(rp->axons);
+    mkl_free(rp->dendrites);
+    mkl_free(rp->polarities)
+    mkl_free(rp->states)
+    mkl_free(rp->n_cells);
+    mkl_free(rp->intvl);
 
-    for (int i = 0; i < rp->n_connections; i++) free(rp->c[i].w);
+    for (int i = 0; i < rp->n_connections; i++) mkl_free(rp->c[i].w);
     free(rp->c);
 }
 
