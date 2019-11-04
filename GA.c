@@ -11,10 +11,33 @@
 #include <string.h>
 
 /* Globals */
-int MAX_ITERATIONS, NUM_INDIVIDUALS, NUM_ELITES;
-RetinaParam *rps;   // Individual space
+int MAX_ITERATIONS, NUM_INDIVIDUALS, NUM_ELITES, NUM_TEST, NUM_TRAIN;
 int *p1, *p2;       // Parent index spaces
+double *TRAIN;      // Training dataset
+double *LABELS_TR;  // Training labels
+double *TEST;       // Testing dataset
+double *LABELS_TE;  // Testing labels
+RetinaParam *rps;   // Individual space
 VSLStreamStatePtr STREAM; // Random generator stream
+
+void test(){
+    double w[MAX_CELLS + 1];
+    double o;
+
+    int i, j;
+    for (i = 0; i < NUM_INDIVIDUALS; i++){
+        for (j = 0; j < NUM_TRAIN; j++) {
+            // TODO: Retinal processing
+
+            clbas_ddot(MAX_CELLS, w, 1, rps[i].states, 1); // net = w^T x
+            o = tanh(o + w[MAX_CELLS]); // out = tanh(net + w_b * bias)
+
+            d_err = o - LABELS_TR[j];
+
+            // TODO: w -= eta * d_err * (1 - o^2) * input
+        }
+    }
+}
 
 int comparator(const void *rp1, const void *rp2){
     /*
@@ -148,6 +171,7 @@ int main(int argc, char **argv){
 	}
 
 	for (i = 0; i < MAX_ITERATIONS; i++){
+	    test();
 	    selection();
 	    crossover();
 	    mutation();
