@@ -20,6 +20,7 @@ typedef struct RetinaParam{
     double *polarities; // Polarities of interneuron types
     int *n_cells;       // Number of cells for each type
 
+    double *states;     // The states of nodes
     double *intvl;      // Intervals between interneurons of the same types
     int n_connections;  // Number of connection matrices
     Connections *c;     // Array of connection matrices

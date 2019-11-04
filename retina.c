@@ -93,6 +93,8 @@ void init_retina(RetinaParam *rp){
     viRngUniform(VSL_RNG_METHOD_UNIFORM_STD, stream, n, rp->n_cells, 1, MAX_CELLS);
     rp->n_cells[0] = MAX_CELLS;
 
+    rp->states = malloc(MAX_CELLS * sizeof(double));
+
     rp->intvl = malloc(MAX_TYPES * sizeof(double));
 
     rp->c = malloc(MAX_TYPES * MAX_TYPES * sizeof(Connections));
