@@ -11,7 +11,7 @@
 #include <string.h>
 
 /* Globals */
-int MAX_ITERATIONS, NUM_INDIVIDUALS, NUM_ELITES, NUM_TEST, NUM_TRAIN;
+int MAX_ITERATIONS, NUM_INDIVIDUALS, NUM_ELITES, NUM_TEST, NUM_TRAIN, SIM_TIME, ETA;
 int *p1, *p2;       // Parent index spaces
 double *TRAIN;      // Training dataset
 double *LABELS_TR;  // Training labels
@@ -22,19 +22,27 @@ VSLStreamStatePtr STREAM; // Random generator stream
 
 void test(){
     double w[MAX_CELLS + 1];
-    double o;
+    double o, coef;
 
-    int i, j;
+    int i, j, t;
     for (i = 0; i < NUM_INDIVIDUALS; i++){
+        // Randomize w every time
+        vdRngUniform(VSL_RNG_METHOD_UNIFORM_STD, STREAM, MAX_CELLS, w, -1, 1);
+
         for (j = 0; j < NUM_TRAIN; j++) {
-            // TODO: Retinal processing
+            for (t = 0; t < SIM_TIME; t++){
+                // TODO: retina processing  
+            }
 
             clbas_ddot(MAX_CELLS, w, 1, rps[i].states, 1); // net = w^T x
             o = tanh(o + w[MAX_CELLS]); // out = tanh(net + w_b * bias)
 
             d_err = o - LABELS_TR[j];
 
-            // TODO: w -= eta * d_err * (1 - o^2) * input
+            // w -= eta * d_err * (1 - o^2) * input
+            coef = ETA * d_err * (o * o - 1);
+            cblas_daxpy(MAX_CELLS, coef, TEST[j], 1, w, 1);
+            w[MAX_CELLS] += coef; // Note that the bias is 1 so we do not have to multiply
         }
     }
 }
@@ -138,8 +146,8 @@ void mutation(){
 
 int main(int argc, char **argv){
 	if (argc > 5){
-		fprintf(stderr,
-			"retina <MAX ITERATIONS> <NUM INDIVIDUALS> <NUM_ELITES> <WIDTH>\n");
+		fprintf(stderr, "retina <MAX ITERATIONS> <NUM INDIVIDUALS> <NUM_ELITES> <NUM_TEST> "
+                  "<NUM_TRAIN> <SIM_TIME> <ETA>\n");
 		exit(EXIT_FAILURE);
 	}
 
@@ -156,9 +164,25 @@ int main(int argc, char **argv){
 	if (argc > 2)	NUM_INDIVIDUALS = atoi(argv[2]);
 	else 			NUM_INDIVIDUALS = 100;
 
-	// Number of individuals in each epoch
+	// Number of elites in each epoch
     if (argc > 3)	NUM_ELITES = atoi(argv[3]);
     else 			NUM_ELITES = 25;
+
+    // Number of test samples
+    if (argc > 4)	NUM_TEST = atoi(argv[4]);
+    else 			NUM_TEST = 30;
+
+    // Number of training samples
+    if (argc > 5)	NUM_TRAIN = atoi(argv[5]);
+    else 			NUM_TRAIN = 30;
+
+    // Simulation time for retina
+    if (argc > 6)	SIM_TIME = atoi(argv[6]);
+    else 			SIM_TIME = 100;
+
+    // Learning rate
+    if (argc > 7)	ETA = atof(argv[7]);
+    else 			ETA = 0.5;
 
     vslNewStream(&STREAM, VSL_BRNG_MT19937, 1);
 
