@@ -21,20 +21,41 @@ RetinaParam *rps;   // Individual space
 VSLStreamStatePtr STREAM; // Random generator stream
 
 void test(){
-    double w[MAX_CELLS + 1];
+    double w[MAX_CELLS+1];
     double o, coef;
+    int i, j, t, ki, kj, m, n, n_types;
 
-    int i, j, t, ki, kj;
     for (i = 0; i < NUM_INDIVIDUALS; i++){
-        // Randomize w every time
+        // Randomize w
         vdRngUniform(VSL_RNG_METHOD_UNIFORM_STD, STREAM, MAX_CELLS, w, -1, 1);
 
-        for (j = 0; j < NUM_TRAIN; j++) {
+        n_types = rps[i].n_types;
+
+        for (j = 0; j < NUM_TRAIN * MAX_CELLS; j+= MAX_CELLS){ // For each training data
             for (t = 0; t < SIM_TIME; t++){
-                for (ki = 0; ki < rps[i].n_types; ki++){
-                    for (kj = 0; kj < rps[i].n_types; kj++){
-                        // TODO: retina processing
+                for (ki = 0; ki < n_types - 1; ki++){
+                    for (kj = ki + 1; kj < n_types; kj++){
+                        m = rps[i].n_cells[ki];
+                        n = rps[i].n_cells[kj];
+
+                        // s_ki(t) += C_ij * s_kj(t-1)
+                        cblas_dgemv(CblasRowMajor, CblasNoTrans,
+                                    m, n, 1, rps[i].c[kj*n_types+ki]->w, n,
+                                    rps[i].old_states[kj*MAX_CELLS], 1,
+                                    1, rps[i].new_states[ki*MAX_CELLS], 1);
+
+                        // s_kj(t) += C_ji * s_ki(t-1)
+                        cblas_dgemv(CblasRowMajor, CblasNoTrans,
+                                n, m, 1, rps[i].c[ki*n_types+kj]->w, m,
+                                rps[i].old_states[ki*MAX_CELLS], 1,
+                                1, rps[i].new_states[kj*MAX_CELLS], 1);
                     }
+                }
+
+                for (ki = 0; ki < n_types; ki++){
+                    // old_states = new_states
+                    cblas_dcopy(rps[i].n_cells[ki], rps[i].new_states[ki*MAX_CELLS], 1,
+                            rps[i].old_states[ki*MAX_CELLS], 1);
                 }
             }
 

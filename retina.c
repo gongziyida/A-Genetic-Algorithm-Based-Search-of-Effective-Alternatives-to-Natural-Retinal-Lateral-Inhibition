@@ -93,7 +93,8 @@ void init_retina(RetinaParam *rp){
     viRngUniform(VSL_RNG_METHOD_UNIFORM_STD, stream, n, rp->n_cells, 1, MAX_CELLS);
     rp->n_cells[0] = MAX_CELLS;
 
-    rp->states = mkl_malloc(2 * MAX_TYPES * MAX_CELLS * sizeof(double), 64);
+    rp->new_states = mkl_malloc(MAX_TYPES * MAX_CELLS * sizeof(double), 64);
+    rp->old_states = mkl_malloc(MAX_TYPES * MAX_CELLS * sizeof(double), 64);
 
     rp->intvl = mkl_malloc(MAX_TYPES * sizeof(double), 64);
 

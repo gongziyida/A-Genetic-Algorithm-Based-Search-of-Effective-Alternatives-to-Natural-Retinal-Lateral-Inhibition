@@ -20,10 +20,20 @@ typedef struct RetinaParam{
     double *polarities; // Polarities of interneuron types
     int *n_cells;       // Number of cells for each type
 
-    double *states;     // The states of nodes, new followed by old (last time stamp)
+    double *new_states; // The new states of nodes
+    double *old_states; // The old states of nodes
     double *intvl;      // Intervals between interneurons of the same types
     int n_connections;  // Number of connection matrices
     Connections *c;     // Array of connection matrices
+    /* Indexing table:
+        s\t |   0   |   1   | ... | n-1
+        ----|-------|-------|-----|---
+          0 |   0   |   1   | ... | n-1
+          1 |   n   |   1   | ... | 2n-1
+          2 |  2n   | 2n+1  | ... | 3n-1
+          ...
+        n-1 | n^2-n |n^2-n+1| ... | n^2-1
+     */
 
     double score;   // Fitness score, the larger the better
 } RetinaParam;
