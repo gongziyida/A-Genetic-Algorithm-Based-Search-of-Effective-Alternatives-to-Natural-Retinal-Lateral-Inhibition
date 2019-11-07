@@ -23,6 +23,7 @@ VSLStreamStatePtr STREAM; // Random generator stream
 void test(){
     double w[MAX_CELLS+1];
     double o, coef;
+    double *buff;
     int i, j, t, ki, kj, m, n, n_types;
 
     for (i = 0; i < NUM_INDIVIDUALS; i++){
@@ -51,12 +52,10 @@ void test(){
                                 1, rps[i].new_states[kj*MAX_CELLS], 1);
                     }
                 }
-
-                for (ki = 0; ki < n_types; ki++){
-                    // old_states = new_states
-                    cblas_dcopy(rps[i].n_cells[ki], rps[i].new_states[ki*MAX_CELLS], 1,
-                            rps[i].old_states[ki*MAX_CELLS], 1);
-                }
+                // New becomes old
+                buff = rps[i].old_states;
+                rps[i].old_states = rps[i].new_states;
+                rps[i].new_states = buff;
             }
 
             clbas_ddot(MAX_CELLS, w, 1, rps[i].states, 1); // net = w^T x
