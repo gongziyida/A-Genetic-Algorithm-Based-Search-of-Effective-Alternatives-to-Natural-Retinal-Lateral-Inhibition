@@ -7,7 +7,7 @@
 #include "mkl.h"
 #include "retina.h"
 
-double affinity(int i, int j){
+double affinity(RetinaParam rp, int i, int j){
     double counter = 32.0;
     int buff = rp->axons[j] ^ rp->dendrites[i];
     while (buff != 0){
@@ -47,8 +47,8 @@ void mk_connection(RetinaParam *rp){
             rp->c[kji].to = j;
 
             // Calculate affinity between -1 and 1
-            affinityij = affinity(i, j);
-            affinityji = affinity(j, i);
+            affinityij = affinity(rp, i, j);
+            affinityji = affinity(rp, j, i);
 
             // Calculate decay * affinity / distance
             for (p = 0; p < ni; p++){
@@ -81,13 +81,13 @@ void init_retina(RetinaParam *rp){
     rp->n_connections = n * n;
 
     rp->axons = mkl_malloc(MAX_TYPES * sizeof(double), 64);
-    viRngUniform(VSL_RNG_METHOD_UNIFORM_STD, stream, n * N_FACTORS, rp->axons, INT_MIN, INT_MAX);
+    viRngUniform(VSL_RNG_METHOD_UNIFORM_STD, stream, n, rp->axons, INT_MIN, INT_MAX);
 
     rp->dendrites = mkl_malloc(MAX_TYPES * sizeof(double), 64);
-    viRngUniform(VSL_RNG_METHOD_UNIFORM_STD, stream, n * N_FACTORS, rp->dendrites, INT_MIN, INTMAX);
+    viRngUniform(VSL_RNG_METHOD_UNIFORM_STD, stream, n, rp->dendrites, INT_MIN, INT_MAX);
 
     rp->polarities = mkl_malloc(MAX_TYPES * sizeof(double), 64);
-    vdRngUniform(VSL_RNG_METHOD_UNIFORM_STD, stream, n * N_FACTORS, rp->dendrites, -1, 1);
+    vdRngUniform(VSL_RNG_METHOD_UNIFORM_STD, stream, n, rp->polarities, -1, 1);
 
     rp->n_cells = mkl_malloc(MAX_TYPES * sizeof(int), 64);
     viRngUniform(VSL_RNG_METHOD_UNIFORM_STD, stream, n, rp->n_cells, 1, MAX_CELLS);
@@ -117,8 +117,8 @@ void init_retina(RetinaParam *rp){
 void rm_retina(RetinaParam *rp){
     mkl_free(rp->axons);
     mkl_free(rp->dendrites);
-    mkl_free(rp->polarities)
-    mkl_free(rp->states)
+    mkl_free(rp->polarities);
+    mkl_free(rp->states);
     mkl_free(rp->n_cells);
     mkl_free(rp->intvl);
 
