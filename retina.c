@@ -7,7 +7,7 @@
 #include "mkl.h"
 #include "retina.h"
 
-double affinity(RetinaParam rp, int i, int j){
+double affinity(RetinaParam *rp, int i, int j){
     double counter = 32.0;
     int buff = rp->axons[j] ^ rp->dendrites[i];
     while (buff != 0){
@@ -118,7 +118,8 @@ void rm_retina(RetinaParam *rp){
     mkl_free(rp->axons);
     mkl_free(rp->dendrites);
     mkl_free(rp->polarities);
-    mkl_free(rp->states);
+    mkl_free(rp->new_states);
+    mkl_free(rp->old_states);
     mkl_free(rp->n_cells);
     mkl_free(rp->intvl);
 
