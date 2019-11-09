@@ -1,11 +1,8 @@
 // Author   Ziyi Gong
-// Version  0.1
+
 #ifndef RETINA_H
 #include <stdio.h>
 #define RETINA_H
-extern const int MAX_TYPES;
-extern const int MAX_CELLS;
-extern const int WIDTH;
 
 typedef struct Connections{
     int from;

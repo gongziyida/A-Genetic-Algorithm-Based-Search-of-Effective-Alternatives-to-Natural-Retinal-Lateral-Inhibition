@@ -1,16 +1,12 @@
 // Author   Ziyi Gong
-// Version  0.3
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
 #include <limits.h>
 #include "mkl.h"
 #include "retina.h"
-
-
-const int MAX_TYPES = 5;
-const int MAX_CELLS = 10;
-const int WIDTH = 20;
+#include "io.h"
 
 double affinity(RetinaParam *rp, int i, int j){
     double counter = 32.0;

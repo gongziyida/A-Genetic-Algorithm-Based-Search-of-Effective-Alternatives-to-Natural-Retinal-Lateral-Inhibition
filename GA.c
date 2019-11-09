@@ -1,5 +1,5 @@
 // Author   Ziyi Gong
-// Version  0.1
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -9,16 +9,12 @@
 #include <math.h>
 #include <limits.h>
 #include <string.h>
-#include "retina.h"
 #include "mkl.h"
+#include "retina.h"
+#include "io.h"
 
 /* Globals */
-int MAX_ITERATIONS, NUM_INDIVIDUALS, NUM_ELITES, NUM_TEST, NUM_TRAIN, SIM_TIME, ETA;
 int *p1, *p2;       // Parent index spaces
-double *TRAIN;      // Training dataset
-double *LABELS_TR;  // Training labels
-double *TEST;       // Testing dataset
-double *LABELS_TE;  // Testing labels
 RetinaParam *rps;   // Individual space
 VSLStreamStatePtr STREAM; // Random generator stream
 
@@ -34,7 +30,13 @@ void test(){
 
         n_types = rps[i].n_types;
 
-        for (j = 0; j < NUM_TRAIN * MAX_CELLS; j+= MAX_CELLS){ // For each training data
+        for (j = 0; j < TRAIN_SIZE; j++){ // For each training data
+            // Set the states of receptors to the input
+            cblas_dcopy (MAX_CELLS, &TRAIN[j*MAX_CELLS], 1, rps[i].old_states, 1);
+
+            // Set the rest of states to 0
+            memset(&rps[i].old_states[MAX_CELLS], 0, (n_types - 1) * MAX_CELLS * sizeof(double));
+
             for (t = 0; t < SIM_TIME; t++){
                 for (ki = 0; ki < n_types - 1; ki++){
                     for (kj = ki + 1; kj < n_types; kj++){
@@ -69,7 +71,7 @@ void test(){
 
             // w -= eta * d_err * (1 - o^2) * input
             coef = ETA * d_err * (o * o - 1);
-            cblas_daxpy(MAX_CELLS, coef, &TEST[j], 1, w, 1);
+            cblas_daxpy(MAX_CELLS, coef, &TEST[j*MAX_CELLS], 1, w, 1);
             w[MAX_CELLS] += coef; // Note that the bias is 1 so we do not have to multiply
         }
     }
@@ -176,58 +178,35 @@ void mutation(){
 
 
 int main(int argc, char **argv){
-	if (argc > 5){
-		fprintf(stderr, "retina <MAX ITERATIONS> <NUM INDIVIDUALS> <NUM_ELITES> <NUM_TEST> "
-                  "<NUM_TRAIN> <SIM_TIME> <ETA>\n");
-		exit(EXIT_FAILURE);
-	}
-
-	/* Initialization */
-	printf("Initializing...\n");
-	
-	// Maximum number of iterations allowed
-	if (argc > 1)	MAX_ITERATIONS = atoi(argv[1]);
-	else 			MAX_ITERATIONS = 1000;
-	
-	// Number of individuals in each epoch
-	if (argc > 2)	NUM_INDIVIDUALS = atoi(argv[2]);
-	else 			NUM_INDIVIDUALS = 100;
-
-	// Number of elites in each epoch
-    if (argc > 3)	NUM_ELITES = atoi(argv[3]);
-    else 			NUM_ELITES = 25;
-
-    // Number of test samples
-    if (argc > 4)	NUM_TEST = atoi(argv[4]);
-    else 			NUM_TEST = 30;
-
-    // Number of training samples
-    if (argc > 5)	NUM_TRAIN = atoi(argv[5]);
-    else 			NUM_TRAIN = 30;
-
-    // Simulation time for retina
-    if (argc > 6)	SIM_TIME = atoi(argv[6]);
-    else 			SIM_TIME = 100;
-
-    // Learning rate
-    if (argc > 7)	ETA = atof(argv[7]);
-    else 			ETA = 0.5;
+    printf("Loading data");
+    load();
 
     vslNewStream(&STREAM, VSL_BRNG_MT19937, 1);
 
     int i, j;
 
-	// Initialize individual space
-	RetinaParam *rps = malloc(NUM_INDIVIDUALS * sizeof(RetinaParam));
-	for (i = 0; i < NUM_INDIVIDUALS; i++){
-	    init_retina(&rps[i]);
-	}
+    printf("Initializing retinas\n");
+    // Initialize individual space
+    rps = malloc(NUM_INDIVIDUALS * sizeof(RetinaParam));
+    for (i = 0; i < NUM_INDIVIDUALS; i++){
+        init_retina(&rps[i]);
+    }
 
-	for (i = 0; i < MAX_ITERATIONS; i++){
-	    test();
-	    selection();
+    // Initialize parent index spaces
+    p1 = mkl_malloc(NUM_INDIVIDUALS * sizeof(int), 64);
+    p2 = mkl_malloc(NUM_INDIVIDUALS * sizeof(int), 64);
+
+
+    printf("Starting simulations\n");
+    for (i = 0; i < MAX_ITERATIONS; i++){
+        test();
+        printf("1\n");
+        selection();
+        printf("1\n");
 	    crossover();
+        printf("1\n");
 	    mutation();
+        printf("1\n");
 	    for (j = 0; j < NUM_INDIVIDUALS; j++){
             mk_connection(&rps[j]);
         }
@@ -238,7 +217,13 @@ int main(int argc, char **argv){
 	for (i = 0; i < NUM_INDIVIDUALS; i++){
         rm_retina(&rps[i]);
     }
+
+	free_data();
+
 	free(rps);
+	free(p1);
+	free(p2);
+
 
 	return 0;
 }
