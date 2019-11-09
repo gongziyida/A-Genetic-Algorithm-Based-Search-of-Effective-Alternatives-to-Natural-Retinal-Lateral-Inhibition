@@ -1,10 +1,11 @@
 // Author   Ziyi Gong
 // Version  0.1
 #ifndef RETINA_H
+#include <stdio.h>
 #define RETINA_H
-const int MAX_TYPES = 5;
-const int MAX_CELLS = 10;
-const int WIDTH = 50;
+extern const int MAX_TYPES;
+extern const int MAX_CELLS;
+extern const int WIDTH;
 
 typedef struct Connections{
     int from;
@@ -37,4 +38,17 @@ typedef struct RetinaParam{
 
     double score;   // Fitness score, the larger the better
 } RetinaParam;
+
+// Build the connection matrices
+void mk_connection(RetinaParam *rp);
+
+// Initialize a retina; should be called for an appropriate number of times
+void init_retina(RetinaParam *rp);
+
+// Remove a retina; the method does not free the RetinaParam itself
+void rm_retina(RetinaParam *rp);
+
+// Print the connection matrices to a file
+void print_connections(RetinaParam *rp, FILE *f);
+
 #endif //MY_PROJECT_RETINA_H

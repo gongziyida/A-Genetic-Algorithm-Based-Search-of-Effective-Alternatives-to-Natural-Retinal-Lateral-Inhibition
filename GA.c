@@ -9,6 +9,8 @@
 #include <math.h>
 #include <limits.h>
 #include <string.h>
+#include "retina.h"
+#include "mkl.h"
 
 /* Globals */
 int MAX_ITERATIONS, NUM_INDIVIDUALS, NUM_ELITES, NUM_TEST, NUM_TRAIN, SIM_TIME, ETA;
@@ -22,7 +24,7 @@ VSLStreamStatePtr STREAM; // Random generator stream
 
 void test(){
     double w[MAX_CELLS+1];
-    double o, coef;
+    double o, coef, d_err;
     double *buff;
     int i, j, t, ki, kj, m, n, n_types;
 
@@ -41,31 +43,33 @@ void test(){
 
                         // s_ki(t) += C_ij * s_kj(t-1)
                         cblas_dgemv(CblasRowMajor, CblasNoTrans,
-                                    m, n, 1, rps[i].c[kj*n_types+ki]->w, n,
-                                    rps[i].old_states[kj*MAX_CELLS], 1,
-                                    1, rps[i].new_states[ki*MAX_CELLS], 1);
+                                    m, n, 1, rps[i].c[kj*n_types+ki].w, n,
+                                    &rps[i].old_states[kj*MAX_CELLS], 1,
+                                    1, &rps[i].new_states[ki*MAX_CELLS], 1);
 
                         // s_kj(t) += C_ji * s_ki(t-1)
                         cblas_dgemv(CblasRowMajor, CblasNoTrans,
-                                n, m, 1, rps[i].c[ki*n_types+kj]->w, m,
-                                rps[i].old_states[ki*MAX_CELLS], 1,
-                                1, rps[i].new_states[kj*MAX_CELLS], 1);
+                                n, m, 1, rps[i].c[ki*n_types+kj].w, m,
+                                &rps[i].old_states[ki*MAX_CELLS], 1,
+                                1, &rps[i].new_states[kj*MAX_CELLS], 1);
                     }
                 }
-                // New becomes old
-                buff = rps[i].old_states;
-                rps[i].old_states = rps[i].new_states;
-                rps[i].new_states = buff;
+
+                if (t != SIM_TIME - 1){ // New becomes old
+                    buff = rps[i].old_states;
+                    rps[i].old_states = rps[i].new_states;
+                    rps[i].new_states = buff; // Need to switch reference in case of memory leaky
+                }
             }
 
-            clbas_ddot(MAX_CELLS, w, 1, rps[i].states, 1); // net = w^T x
+            cblas_ddot(MAX_CELLS, w, 1, rps[i].new_states, 1); // net = w^T x
             o = tanh(o + w[MAX_CELLS]); // out = tanh(net + w_b * bias)
 
             d_err = o - LABELS_TR[j];
 
             // w -= eta * d_err * (1 - o^2) * input
             coef = ETA * d_err * (o * o - 1);
-            cblas_daxpy(MAX_CELLS, coef, TEST[j], 1, w, 1);
+            cblas_daxpy(MAX_CELLS, coef, &TEST[j], 1, w, 1);
             w[MAX_CELLS] += coef; // Note that the bias is 1 so we do not have to multiply
         }
     }
@@ -77,7 +81,7 @@ int comparator(const void *rp1, const void *rp2){
      * If rp1->score < rp2->score, rp1 should go after rp2. Return value > 0.
      * Else, return 0.
      */
-    return rp2->score - rp1->score;
+    return ((RetinaParam *)rp2)->score - ((RetinaParam *)rp1)->score;
 }
 
 void selection(){
@@ -116,8 +120,8 @@ void crossover(){
     int p1i, p2i, n;
 
     // Single-point crossover
-    int j = NUM_ELITES;
-    for (int i = 0; i < NUM_INDIVIDUALS - NUM_ELITES; i++, j++){
+    int k;
+    for (int i = 0; i < NUM_INDIVIDUALS - NUM_ELITES; i++){
         if (rand() % 100 < 50) {
             p1i = p1[i];
             p2i = p2[i];
@@ -128,12 +132,15 @@ void crossover(){
 
         n = rps[p2i].n_types;
 
-        rps[j].decay = rps[p1i].decay;
-        rps[j].n_types = n;
-        strncpy(rps[j].axons, rps[p2i].axons, MAX_TYPES);
-        strncpy(rps[j].dendrites, rps[p2i].dendrites, MAX_TYPES);
-        strncpy(rps[j].polarities, rps[p2i].polarities, MAX_TYPES);
-        strncpy(rps[j].n_cells, rps[p2i].n_cells, MAX_TYPES);
+        children[i].decay = rps[p1i].decay;
+        children[i].n_types = n;
+
+        for (k = 0; k < MAX_TYPES; k++){
+            children[i].axons[k] = rps[p2i].axons[k];
+            children[i].dendrites[k] = rps[p2i].dendrites[k];
+            children[i].polarities[k] = rps[p2i].polarities[k];
+            children[i].n_cells[k] = rps[p2i].n_cells[k];
+        }
     }
 }
 
@@ -177,8 +184,6 @@ int main(int argc, char **argv){
 
 	/* Initialization */
 	printf("Initializing...\n");
-
-	/* Constant declarations begin */
 	
 	// Maximum number of iterations allowed
 	if (argc > 1)	MAX_ITERATIONS = atoi(argv[1]);

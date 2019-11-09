@@ -1,8 +1,29 @@
 # On how to compile, see more information in
 # https://software.intel.com/en-us/articles/intel-mkl-link-line-advisor/
-retina: retina.c retina.h
-	gcc -m64 -I${MKLROOT}/include -o retina retina.c -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread -lm
 
-clear:
-	rm -f retina
+CC	= gcc
 
+CFLAGS	= -g -Wall -m64
+
+OBJS	= $(patsubst %, obj/%, retina.o GA.o)
+
+_MKL	= /opt/intel/compilers_and_libraries_2019.5.281/linux/mkl
+
+INCLUDES= -I$(_MKL)/include -I.
+
+LDFLAGS	= -L$(_MKL)/lib/intel64 -Wl,--no-as-needed -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread
+
+LDLIBS	= -lm -ldl
+
+DEPS	= retina.h
+
+obj/%.o: %.c $(DEPS)
+	@ mkdir -p obj
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+
+GA: $(OBJS) $(DEPS)
+	$(CC) $(CFLAGS) $(OBJS) -o $@ $(INCLUDES) $(LDFLAGS) $(LDLIBS)
+
+clean:
+	rm -rf GA obj

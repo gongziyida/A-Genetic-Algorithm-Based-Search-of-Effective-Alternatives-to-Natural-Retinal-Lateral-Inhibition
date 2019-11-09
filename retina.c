@@ -7,6 +7,11 @@
 #include "mkl.h"
 #include "retina.h"
 
+
+const int MAX_TYPES = 5;
+const int MAX_CELLS = 10;
+const int WIDTH = 20;
+
 double affinity(RetinaParam *rp, int i, int j){
     double counter = 32.0;
     int buff = rp->axons[j] ^ rp->dendrites[i];
@@ -127,9 +132,9 @@ void rm_retina(RetinaParam *rp){
     free(rp->c);
 }
 
-void print_connections(RetinaParam *rp, FILE *f) {
+void print_connections(RetinaParam *rp, FILE *f){
     int nfrom, nto;
-    for (int i = 0; i < rp->n_connections; i++) {
+    for (int i = 0; i < rp->n_connections; i++){
         if (rp->c[i].w == NULL) continue;
 
         nfrom = rp->n_cells[rp->c[i].from];
@@ -145,14 +150,4 @@ void print_connections(RetinaParam *rp, FILE *f) {
         }
         fprintf(f, "\n------\n\n");
     }
-}
-
-int main(){
-    RetinaParam *rp = malloc(sizeof(RetinaParam));
-    init_retina(rp);
-    print_connections(rp, stdout);
-    rm_retina(rp);
-    free(rp);
-
-    return 0;
 }
