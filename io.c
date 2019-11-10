@@ -85,7 +85,15 @@ void free_data(){
 void save(RetinaParam *rps, FILE *f, int top){
     int nfrom, nto;
 
+    fprintf(f, "ENVIRONMENT VARIABLES\n");
+    fprintf(f, PARAM_FORMAT, MAX_ITERATIONS, NUM_INDIVIDUALS, NUM_ELITES,
+            TRAIN_SIZE, TEST_SIZE, SIM_TIME, ETA, MAX_TYPES, MAX_CELLS, WIDTH);
+
+    fprintf(f, "\n******\n\n");
+
     for (int i = 0; i < top; i++){
+        fprintf(f, "INDIVIDUAL %d\n", i);
+
         for (int j = 0; j < rps[i].n_connections; j++) {
             if (rps[i].c[j].w == NULL) continue;
 
@@ -102,5 +110,7 @@ void save(RetinaParam *rps, FILE *f, int top){
             }
             fprintf(f, "\n------\n\n");
         }
+
+        fprintf(f, "******\n\n");
     }
 }

@@ -19,13 +19,14 @@ RetinaParam *rps;   // Individual space
 VSLStreamStatePtr STREAM; // Random generator stream
 
 void test(){
-    double w[MAX_CELLS+1];
+    double w[MAX_CELLS+1]; // Perceptron connection matrix
     double o, coef, err, d_err;
     int i, j;
 
     for (i = 0; i < NUM_INDIVIDUALS; i++){
-        // Randomize w
-        vdRngUniform(VSL_RNG_METHOD_UNIFORM_STD, STREAM, MAX_CELLS, w, -1, 1);
+
+        // Train
+        vdRngUniform(VSL_RNG_METHOD_UNIFORM_STD, STREAM, MAX_CELLS, w, -1, 1); // Randomize w
 
         for (j = 0; j < TRAIN_SIZE; j++){ // For each training data
             process(&rps[i], &TRAIN[j*MAX_CELLS]);
@@ -41,8 +42,8 @@ void test(){
             w[MAX_CELLS] += coef; // Note that the bias is 1 so we do not have to multiply
         }
 
+        // Test
         err = 0;
-
         for (j = 0; j < TEST_SIZE; j++){ // For each training data
             process(&rps[i], &TEST[j*MAX_CELLS]);
 
@@ -68,14 +69,15 @@ int comparator(const void *rp1, const void *rp2){
 void selection(){
     int rival1, rival2;
 
-    for (int i = 0; i < NUM_INDIVIDUALS - NUM_ELITES; i++){
+    for (int i = 0; i < NUM_INDIVIDUALS - NUM_ELITES; i++){ // Choose each child's parents
+        // Randomly select two rivals
         rival1 = rand() % NUM_INDIVIDUALS;
         rival2 = rand() % NUM_INDIVIDUALS;
 
-        if (rand() % 100 < 75){
-            p1[i] = (rps[rival1].score > rps[rival2].score)? rival1 : rival2;
-        } else {
-            p1[i] = (rps[rival1].score > rps[rival2].score)? rival2 : rival1;
+        if (rand() % 100 < 75){ // 0.75 chance to pick the one with the lower score (winner)
+            p1[i] = (rps[rival1].score < rps[rival2].score)? rival1 : rival2;
+        } else { // 0.25 chance to pick the one with the high score (loser)
+            p1[i] = (rps[rival1].score < rps[rival2].score)? rival2 : rival1;
         }
 
         do{ // Avoid self-crossover
@@ -84,10 +86,10 @@ void selection(){
 
         } while (rival1 == p1[i] || rival2 == p1[i]);
 
-        if (rand() % 100 < 75){
-            p2[i] = (rps[rival1].score > rps[rival2].score)? rival1 : rival2;
+        if (rand() % 100 < 75){ // Similar to above
+            p2[i] = (rps[rival1].score < rps[rival2].score)? rival1 : rival2;
         } else {
-            p2[i] = (rps[rival1].score > rps[rival2].score)? rival2 : rival1;
+            p2[i] = (rps[rival1].score < rps[rival2].score)? rival2 : rival1;
         }
     }
 }
@@ -143,13 +145,13 @@ void mutation(){
                           1, &rps[i].polarities[j], rps[i].polarities[j], 0.01);
 
             chance = rand() % 100;
-            // 50% probability the number of cells will decrease/increase by 1
+            // 0.5 probability the number of cells will decrease/increase by 1
             if (chance < 25) {
                 rps[i].n_cells[j] += 1;
-                if (rps[i].n_cells[j] > MAX_CELLS) rps[i].n_cells[j]--;
+                if (rps[i].n_cells[j] > MAX_CELLS) rps[i].n_cells[j]--; // Cannot go above the max
             } else if (chance < 50){
                 rps[i].n_cells[j] -= 1;
-                if (rps[i].n_cells[j] < 0) rps[i].n_cells[j] = 0;
+                if (rps[i].n_cells[j] < 0) rps[i].n_cells[j] = 0; // Cannot go below the min (0)
             }
         }
     }
@@ -157,14 +159,14 @@ void mutation(){
 
 
 int main(int argc, char **argv){
-    printf("Loading data\n");
+    fprintf(stderr, "Loading data\n");
     load();
 
     vslNewStream(&STREAM, VSL_BRNG_MT19937, 1);
 
     int i, j;
 
-    printf("Initializing retinas\n");
+    fprintf(stderr, "Initializing retinas\n");
     // Initialize individual space
     rps = malloc(NUM_INDIVIDUALS * sizeof(RetinaParam));
     for (i = 0; i < NUM_INDIVIDUALS; i++){
@@ -176,7 +178,7 @@ int main(int argc, char **argv){
     p2 = mkl_malloc(NUM_INDIVIDUALS * sizeof(int), 64);
 
 
-    printf("Starting simulations\n");
+    fprintf(stderr, "Simulation in progress\n");
     for (i = 0; i < MAX_ITERATIONS; i++){
         test();
         selection();
@@ -189,7 +191,9 @@ int main(int argc, char **argv){
 
 	save(rps, stdout, (int)(NUM_INDIVIDUALS * 0.25));
 
-	for (i = 0; i < NUM_INDIVIDUALS; i++){
+    fprintf(stderr, "Done. Removing trashes\n");
+
+    for (i = 0; i < NUM_INDIVIDUALS; i++){
         rm_retina(&rps[i]);
     }
 
