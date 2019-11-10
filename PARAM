@@ -1,0 +1,10 @@
+Max Iterations = 500
+Num Individuals = 100
+Num Elites = 25
+Train Size = 30
+Test Size = 30
+Sim Time = 50
+Eta = 0.5
+Max Types = 5
+Max Cells = 10
+Width = 10

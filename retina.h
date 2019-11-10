@@ -1,7 +1,9 @@
 // Author   Ziyi Gong
 
 #ifndef RETINA_H
+
 #include <stdio.h>
+
 #define RETINA_H
 
 typedef struct Connections{

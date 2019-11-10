@@ -1,18 +1,19 @@
 // Author   Ziyi Gong
 
-#include <stdio.h>
+//#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "mkl.h"
+//#include "retina.h"
 #include "io.h"
 
 int MAX_ITERATIONS, NUM_INDIVIDUALS, NUM_ELITES, TRAIN_SIZE, TEST_SIZE, SIM_TIME,
         MAX_TYPES, MAX_CELLS, WIDTH;
 double ETA;
-double *TRAIN;      // Training dataset
-double *TEST;       // Testing dataset
-int *LABELS_TR;  // Training labels
-int *LABELS_TE;  // Testing labels
+double *TRAIN;
+double *TEST;
+int *LABELS_TR;
+int *LABELS_TE;
 
 char *PARAM = "PARAM";
 char *DATA = "DATA";
@@ -79,4 +80,27 @@ void free_data(){
     mkl_free(TEST);
     mkl_free(LABELS_TR);
     mkl_free(LABELS_TE);
+}
+
+void save(RetinaParam *rps, FILE *f, int top){
+    int nfrom, nto;
+
+    for (int i = 0; i < top; i++){
+        for (int j = 0; j < rps[i].n_connections; j++) {
+            if (rps[i].c[j].w == NULL) continue;
+
+            nfrom = rps[i].n_cells[rps[i].c[j].from];
+            nto = rps[i].n_cells[rps[i].c[j].to];
+
+            fprintf(f, "%d -> %d (%d * %d)\n", rps[i].c[j].from, rps[i].c[j].to, nto, nfrom);
+
+            for (int p = 0; p < nto; p++) {
+                for (int q = 0; q < nfrom; q++) {
+                    fprintf(f, "%.4f ", rps[i].c[j].w[p*nfrom+q]);
+                }
+                fprintf(f, "\n");
+            }
+            fprintf(f, "\n------\n\n");
+        }
+    }
 }

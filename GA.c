@@ -49,7 +49,7 @@ void test(){
             cblas_ddot(MAX_CELLS, w, 1, rps[i].new_states, 1); // net = w^T x
             o = tanh(o + w[MAX_CELLS]); // out = tanh(net + w_b * bias)
 
-            err += (o - LABELS_TR[j]) * (o - LABELS_TR[j]);
+            err += (o - LABELS_TE[j]) * (o - LABELS_TE[j]);
         }
 
         rps[i].score = err;
@@ -187,7 +187,7 @@ int main(int argc, char **argv){
         }
 	}
 
-	// TODO: Output data
+	save(rps, stdout, (int)(NUM_INDIVIDUALS * 0.25));
 
 	for (i = 0; i < NUM_INDIVIDUALS; i++){
         rm_retina(&rps[i]);

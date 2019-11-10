@@ -129,26 +129,6 @@ void rm_retina(RetinaParam *rp){
     free(rp->c);
 }
 
-void print_connections(RetinaParam *rp, FILE *f){
-    int nfrom, nto;
-    for (int i = 0; i < rp->n_connections; i++){
-        if (rp->c[i].w == NULL) continue;
-
-        nfrom = rp->n_cells[rp->c[i].from];
-        nto = rp->n_cells[rp->c[i].to];
-
-        fprintf(f, "%d -> %d (%d * %d)\n", rp->c[i].from,rp->c[i].to, nto, nfrom);
-
-        for (int p = 0; p < nto; p++) {
-            for (int q = 0; q < nfrom; q++) {
-                fprintf(f, "%.4f ", rp->c[i].w[p * nfrom + q]);
-            }
-            fprintf(f, "\n");
-        }
-        fprintf(f, "\n------\n\n");
-    }
-}
-
 void process(RetinaParam *rp, double *input) {
     int n = rp->n_types; // For convenience
 
