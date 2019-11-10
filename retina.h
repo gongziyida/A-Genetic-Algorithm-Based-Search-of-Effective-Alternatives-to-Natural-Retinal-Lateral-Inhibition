@@ -48,4 +48,6 @@ void rm_retina(RetinaParam *rp);
 // Print the connection matrices to a file
 void print_connections(RetinaParam *rp, FILE *f);
 
+// Retinal process
+void process(RetinaParam *rp, double *input);
 #endif //MY_PROJECT_RETINA_H

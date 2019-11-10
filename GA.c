@@ -20,51 +20,15 @@ VSLStreamStatePtr STREAM; // Random generator stream
 
 void test(){
     double w[MAX_CELLS+1];
-    double o, coef, d_err;
-    double *buff;
-    int i, j, t, ki, kj, m, n, n_types;
+    double o, coef, err, d_err;
+    int i, j;
 
     for (i = 0; i < NUM_INDIVIDUALS; i++){
         // Randomize w
         vdRngUniform(VSL_RNG_METHOD_UNIFORM_STD, STREAM, MAX_CELLS, w, -1, 1);
 
-        n_types = rps[i].n_types;
-
         for (j = 0; j < TRAIN_SIZE; j++){ // For each training data
-            // Set the states of receptors to the input
-            cblas_dcopy (MAX_CELLS, &TRAIN[j*MAX_CELLS], 1, rps[i].old_states, 1);
-
-            // Set the rest of states to 0
-            memset(&rps[i].old_states[MAX_CELLS], 0, (n_types - 1) * MAX_CELLS * sizeof(double));
-
-            for (t = 0; t < SIM_TIME; t++){
-                for (ki = 0; ki < n_types - 1; ki++){
-                    for (kj = ki + 1; kj < n_types; kj++){
-                        m = rps[i].n_cells[ki];
-                        n = rps[i].n_cells[kj];
-
-                        if (n == 0 || m == 0) continue;
-
-                        // s_ki(t) += C_ij * s_kj(t-1)
-                        cblas_dgemv(CblasRowMajor, CblasNoTrans,
-                                    m, n, 1, rps[i].c[kj*n_types+ki].w, n,
-                                    &rps[i].old_states[kj*MAX_CELLS], 1,
-                                    1, &rps[i].new_states[ki*MAX_CELLS], 1);
-
-                        // s_kj(t) += C_ji * s_ki(t-1)
-                        cblas_dgemv(CblasRowMajor, CblasNoTrans,
-                                n, m, 1, rps[i].c[ki*n_types+kj].w, m,
-                                &rps[i].old_states[ki*MAX_CELLS], 1,
-                                1, &rps[i].new_states[kj*MAX_CELLS], 1);
-                    }
-                }
-
-                if (t != SIM_TIME - 1){ // New becomes old
-                    buff = rps[i].old_states;
-                    rps[i].old_states = rps[i].new_states;
-                    rps[i].new_states = buff; // Need to switch reference in case of memory leaky
-                }
-            }
+            process(&rps[i], &TRAIN[j*MAX_CELLS]);
 
             cblas_ddot(MAX_CELLS, w, 1, rps[i].new_states, 1); // net = w^T x
             o = tanh(o + w[MAX_CELLS]); // out = tanh(net + w_b * bias)
@@ -73,19 +37,32 @@ void test(){
 
             // w -= eta * d_err * (1 - o^2) * input
             coef = ETA * d_err * (o * o - 1);
-            cblas_daxpy(MAX_CELLS, coef, &TEST[j*MAX_CELLS], 1, w, 1);
+            cblas_daxpy(MAX_CELLS, coef, &TRAIN[j*MAX_CELLS], 1, w, 1);
             w[MAX_CELLS] += coef; // Note that the bias is 1 so we do not have to multiply
         }
+
+        err = 0;
+
+        for (j = 0; j < TEST_SIZE; j++){ // For each training data
+            process(&rps[i], &TEST[j*MAX_CELLS]);
+
+            cblas_ddot(MAX_CELLS, w, 1, rps[i].new_states, 1); // net = w^T x
+            o = tanh(o + w[MAX_CELLS]); // out = tanh(net + w_b * bias)
+
+            err += (o - LABELS_TR[j]) * (o - LABELS_TR[j]);
+        }
+
+        rps[i].score = err;
     }
 }
 
 int comparator(const void *rp1, const void *rp2){
     /*
-     * If rp1->score > rp2->score, rp1 should go before rp2. Return value < 0.
-     * If rp1->score < rp2->score, rp1 should go after rp2. Return value > 0.
+     * If rp1's score > rp2's score (rp1 is worse), rp1 ranks lower rp2. Return value > 0.
+     * If rp1's score < rp2's score (rp2 is worse), rp1 ranks higher rp2. Return value < 0.
      * Else, return 0.
      */
-    return ((RetinaParam *)rp2)->score - ((RetinaParam *)rp1)->score;
+    return ((RetinaParam *)rp1)->score - ((RetinaParam *)rp2)->score;
 }
 
 void selection(){
@@ -201,7 +178,6 @@ int main(int argc, char **argv){
 
     printf("Starting simulations\n");
     for (i = 0; i < MAX_ITERATIONS; i++){
-        printf("\b%d\n", i);
         test();
         selection();
 	    crossover();
@@ -220,9 +196,8 @@ int main(int argc, char **argv){
 	free_data();
 
 	free(rps);
-	free(p1);
-	free(p2);
-
+	mkl_free(p1);
+	mkl_free(p2);
 
 	return 0;
 }

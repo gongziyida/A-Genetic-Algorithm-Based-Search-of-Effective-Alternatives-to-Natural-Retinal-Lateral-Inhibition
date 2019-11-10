@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <limits.h>
+#include <string.h>
 #include "mkl.h"
 #include "retina.h"
 #include "io.h"
@@ -145,5 +146,45 @@ void print_connections(RetinaParam *rp, FILE *f){
             fprintf(f, "\n");
         }
         fprintf(f, "\n------\n\n");
+    }
+}
+
+void process(RetinaParam *rp, double *input) {
+    int n = rp->n_types; // For convenience
+
+    // Set the states of receptors to the input
+    cblas_dcopy(MAX_CELLS, input, 1, rp->old_states, 1);
+
+    // Set the rest of states to 0
+    memset(&rp->old_states[MAX_CELLS], 0, (n - 1) * MAX_CELLS * sizeof(double));
+
+    int a, b;
+    double *buff;
+
+    for (int t = 0; t < SIM_TIME; t++) {
+        for (int i = 0; i < n - 1; i++) {
+            for (int j = i + 1; j < n; j++) {
+                a = rp->n_cells[i];
+                b = rp->n_cells[j];
+
+                if (a == 0 || b == 0) continue;
+
+                // s_ki(t) += C_ij * s_kj(t-1)
+                cblas_dgemv(CblasRowMajor, CblasNoTrans, a, b, 1, rp->c[j * n + i].w, b,
+                            &rp->old_states[j * MAX_CELLS], 1, 1, &rp->new_states[i * MAX_CELLS],
+                            1);
+
+                // s_kj(t) += C_ji * s_ki(t-1)
+                cblas_dgemv(CblasRowMajor, CblasNoTrans, b, a, 1, rp->c[i * n + j].w, a,
+                            &rp->old_states[i * MAX_CELLS], 1, 1, &rp->new_states[j * MAX_CELLS],
+                            1);
+            }
+        }
+
+        if (t != SIM_TIME - 1) { // New becomes old
+            buff = rp->old_states;
+            rp->old_states = rp->new_states;
+            rp->new_states = buff; // Need to switch reference in case of memory leaky
+        } // Otherwise, we just keep the freshest values in new_states
     }
 }
