@@ -43,6 +43,8 @@ void test(){
                         m = rps[i].n_cells[ki];
                         n = rps[i].n_cells[kj];
 
+                        if (n == 0 || m == 0) continue;
+
                         // s_ki(t) += C_ij * s_kj(t-1)
                         cblas_dgemv(CblasRowMajor, CblasNoTrans,
                                     m, n, 1, rps[i].c[kj*n_types+ki].w, n,
@@ -152,7 +154,7 @@ void mutation(){
     for (int i = NUM_ELITES; i < NUM_INDIVIDUALS; i++){
         n = rps[i].n_types;
         vdRngGaussian(VSL_RNG_METHOD_GAUSSIAN_BOXMULLER, STREAM,
-                1, &rps[i].decay, rps[i].decay, WIDTH/20);
+                1, &rps[i].decay, rps[i].decay, WIDTH/20.0);
 
         // Randomly change one of the axon descriptors (same for dendrites)
         rps[i].axons[rand() % n] ^= (int)(rand() - RAND_MAX);
@@ -170,7 +172,7 @@ void mutation(){
                 if (rps[i].n_cells[j] > MAX_CELLS) rps[i].n_cells[j]--;
             } else if (chance < 50){
                 rps[i].n_cells[j] -= 1;
-//                if (rps[i].n_cells[j] == 0) rps[i].n_cells[j]++;
+                if (rps[i].n_cells[j] < 0) rps[i].n_cells[j] = 0;
             }
         }
     }
@@ -178,7 +180,7 @@ void mutation(){
 
 
 int main(int argc, char **argv){
-    printf("Loading data");
+    printf("Loading data\n");
     load();
 
     vslNewStream(&STREAM, VSL_BRNG_MT19937, 1);
@@ -199,14 +201,11 @@ int main(int argc, char **argv){
 
     printf("Starting simulations\n");
     for (i = 0; i < MAX_ITERATIONS; i++){
+        printf("\b%d\n", i);
         test();
-        printf("1\n");
         selection();
-        printf("1\n");
 	    crossover();
-        printf("1\n");
 	    mutation();
-        printf("1\n");
 	    for (j = 0; j < NUM_INDIVIDUALS; j++){
             mk_connection(&rps[j]);
         }
