@@ -6,6 +6,14 @@
 #include "mkl.h"
 #include "io.h"
 
+int MAX_ITERATIONS, NUM_INDIVIDUALS, NUM_ELITES, TRAIN_SIZE, TEST_SIZE, SIM_TIME,
+        MAX_TYPES, MAX_CELLS, WIDTH;
+double ETA;
+double *TRAIN;      // Training dataset
+double *TEST;       // Testing dataset
+int *LABELS_TR;  // Training labels
+int *LABELS_TE;  // Testing labels
+
 char *PARAM = "PARAM";
 char *DATA = "DATA";
 char *LABELS = "LABELS";
@@ -17,10 +25,10 @@ char *PARAM_FORMAT =
         "Train Size = %d\n"
         "Test Size = %d\n"
         "Sim Time = %d\n"
-        "Eta = %f\n"
+        "Eta = %lf\n"
         "Max Types = %d\n"
         "Max Cells = %d\n"
-        "Width = %d"
+        "Width = %d";
 
 void load(){
     FILE *fparam = fopen(PARAM, "r");
@@ -43,9 +51,9 @@ void load(){
     for (i = 0; i < TEST_SIZE + TRAIN_SIZE; i++){
         for (j = 0; j < MAX_CELLS; j++){
             if (i < TEST_SIZE){
-                fscanf(fdata, "%f%*c", &TEST[i*MAX_CELLS+j]);
+                fscanf(fdata, "%lf%*c", &TEST[i*MAX_CELLS+j]);
             } else{
-                fscanf(fdata, "%f%*c", &TRAIN[(i-TEST_SIZE)*MAX_CELLS+j]);
+                fscanf(fdata, "%lf%*c", &TRAIN[(i-TEST_SIZE)*MAX_CELLS+j]);
             }
         }
     }
@@ -64,22 +72,6 @@ void load(){
     }
 
     fclose(flabels);
-
-    for (i = 0; i < TEST_SIZE + TRAIN_SIZE; i++){
-        for (j = 0; j < MAX_CELLS; j++){
-            if (i < TEST_SIZE){
-                printf("%f\t", TEST[i*MAX_CELLS+j]);
-            } else{
-                printf("%f\t", TRAIN[(i-TEST_SIZE)*MAX_CELLS+j]);
-            }
-        }
-        printf("\n");
-        if (i < TEST_SIZE){
-            printf("%d\n\n", LABELS_TE[i]);
-        } else{
-            printf("%d\n\n", LABELS_TR[i-TEST_SIZE]);
-        }
-    }
 }
 
 void free_data(){
@@ -87,9 +79,4 @@ void free_data(){
     mkl_free(TEST);
     mkl_free(LABELS_TR);
     mkl_free(LABELS_TE);
-}
-
-int main(){
-    load();
-    free_data();
 }

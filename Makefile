@@ -3,19 +3,17 @@
 
 CC	= gcc
 
-CFLAGS	= -g -Wall -m64
+CFLAGS	= -g -Wall -Werror -m64
 
-OBJS	= $(patsubst %, obj/%, retina.o GA.o)
+OBJS	= $(patsubst %, obj/%, io.o retina.o GA.o)
 
-_MKL	= /opt/intel/compilers_and_libraries_2019.5.281/linux/mkl
+INCLUDES= -I${MKLROOT}/include -I.
 
-INCLUDES= -I$(_MKL)/include -I.
-
-LDFLAGS	= -L$(_MKL)/lib/intel64 -Wl,--no-as-needed -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread
+LDFLAGS	= -L${MKLROOT}/lib/intel64 -Wl,--no-as-needed -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread
 
 LDLIBS	= -lm -ldl
 
-DEPS	= retina.h
+DEPS	= retina.h io.h
 
 obj/%.o: %.c $(DEPS)
 	@ mkdir -p obj
