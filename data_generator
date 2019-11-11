@@ -4,11 +4,11 @@ import numpy as np
 
 with open('PARAM', 'r') as f:
     for i, line in enumerate(f):
-        if i == 3:
-            TRAIN_SIZE = int(line.split(' = ')[1])
         if i == 4:
+            TRAIN_SIZE = int(line.split(' = ')[1])
+        if i == 5:
             TEST_SIZE = int(line.split(' = ')[1])
-        if i == 8:
+        if i == 9:
             MAX_CELLS = int(line.split(' = ')[1])
 
 ref_prey = np.zeros(MAX_CELLS, dtype=np.float64)

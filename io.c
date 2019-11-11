@@ -93,12 +93,15 @@ void save(RetinaParam *rps){
 
         f = fopen(fname, "w");
         fprintf(f, "%f\n", rps[i].score);
+        fprintf(f, "%d\n", rps[i].n_types);
 
-        for (int j = 0; j < rps[i].n_connections; j++) {
+        for (int j = 0; j < rps[i].n_connections; j++){
             if (rps[i].c[j].w == NULL) continue;
 
             nfrom = rps[i].n_cells[rps[i].c[j].from];
             nto = rps[i].n_cells[rps[i].c[j].to];
+
+            if (nfrom == 0 || nto == 0) continue;
 
             fprintf(f, "# %d %d %d %d\n", rps[i].c[j].from, rps[i].c[j].to, nto, nfrom);
 

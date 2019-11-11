@@ -8,9 +8,7 @@ fi
 # Run the following if there is a linking error
 # source /opt/intel/compilers_and_libraries_2019.5.281/linux/mkl/bin/mklvars.sh intel64
 
-if [ ! -f GA ] ; then
-	make
-fi
+make
 
 if [ ! -f DATA ] || [ ! -f LABELS ] ; then
 	echo "Generating data"

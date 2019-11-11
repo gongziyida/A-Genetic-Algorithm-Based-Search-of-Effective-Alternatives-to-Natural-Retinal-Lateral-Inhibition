@@ -27,7 +27,6 @@ void test(){
 
         // Train
         vdRngUniform(VSL_RNG_METHOD_UNIFORM_STD, STREAM, MAX_CELLS, w, -1, 1); // Randomize w
-
         for (k = 0; k < NUM_EPOCHS; k++){
             for (j = 0; j < TRAIN_SIZE; j++){ // For each training data
                 process(&rps[i], &TRAIN[j * MAX_CELLS]);
@@ -60,11 +59,16 @@ void test(){
 
 int comparator(const void *rp1, const void *rp2){
     /*
-     * If rp1's score > rp2's score (rp1 is worse), rp1 ranks lower rp2. Return value > 0.
-     * If rp1's score < rp2's score (rp2 is worse), rp1 ranks higher rp2. Return value < 0.
+     * If rp1's score > rp2's score (rp1 is worse), rp1 ranks lower than rp2. Return 1.
+     * If rp1's score < rp2's score (rp2 is worse), rp1 ranks higher than rp2. Return -1.
      * Else, return 0.
      */
-    return ((RetinaParam *)rp1)->score - ((RetinaParam *)rp2)->score;
+    const RetinaParam *rpA = (RetinaParam *) rp1;
+    const RetinaParam *rpB = (RetinaParam *) rp2;
+
+    if (rpA->score > rpB->score) return 1;
+    else if (rpA->score < rpB->score) return -1;
+    else return 0;
 }
 
 void selection(){
@@ -135,7 +139,8 @@ void mutation(){
         n = rps[i].n_types;
         vdRngGaussian(VSL_RNG_METHOD_GAUSSIAN_BOXMULLER, STREAM,
                 1, &rps[i].decay, rps[i].decay, WIDTH/20.0);
-        if (rps[i].decay < 1) rps[i].decay = 1; // Cannot be smaller than 1
+        if (rps[i].decay < 0) rps[i].decay = 0; // Cannot be smaller than 0
+        if (rps[i].decay > WIDTH) rps[i].decay = WIDTH; // Cannot be larger than WIDTH
 
         // Randomly change one of the axon descriptors (same for dendrites)
         rps[i].axons[rand() % n] ^= (int)(rand() - RAND_MAX);
@@ -185,6 +190,8 @@ int main(int argc, char **argv){
 
     fprintf(stderr, "Simulation in progress\n");
     for (i = 0; i < MAX_ITERATIONS; i++){
+        fprintf(stderr, "\r%d", i);
+        fflush(stderr);
         test();
         selection();
 	    crossover();
@@ -200,7 +207,7 @@ int main(int argc, char **argv){
 
 	save(rps);
 
-    fprintf(stderr, "Done. Removing trashes\n");
+    fprintf(stderr, "\nDone. Removing trashes\n");
 
     for (i = 0; i < NUM_INDIVIDUALS; i++){
         rm_retina(&rps[i]);
