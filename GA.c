@@ -21,27 +21,28 @@ VSLStreamStatePtr STREAM; // Random generator stream
 void test(){
     double w[MAX_CELLS+1]; // Perceptron connection matrix
     double o, coef, err, d_err;
-    int i, j;
+    int i, k, j;
 
     for (i = 0; i < NUM_INDIVIDUALS; i++){
 
         // Train
         vdRngUniform(VSL_RNG_METHOD_UNIFORM_STD, STREAM, MAX_CELLS, w, -1, 1); // Randomize w
 
-        for (j = 0; j < TRAIN_SIZE; j++){ // For each training data
-            process(&rps[i], &TRAIN[j*MAX_CELLS]);
+        for (k = 0; k < NUM_EPOCHS; k++){
+            for (j = 0; j < TRAIN_SIZE; j++){ // For each training data
+                process(&rps[i], &TRAIN[j * MAX_CELLS]);
 
-            cblas_ddot(MAX_CELLS, w, 1, rps[i].new_states, 1); // net = w^T x
-            o = tanh(o + w[MAX_CELLS]); // out = tanh(net + w_b * bias)
+                cblas_ddot(MAX_CELLS, w, 1, rps[i].new_states, 1); // net = w^T x
+                o = tanh(o + w[MAX_CELLS]); // out = tanh(net + w_b * bias)
 
-            d_err = o - LABELS_TR[j];
+                d_err = o - LABELS_TR[j];
 
-            // w -= eta * d_err * (1 - o^2) * input
-            coef = ETA * d_err * (o * o - 1);
-            cblas_daxpy(MAX_CELLS, coef, &TRAIN[j*MAX_CELLS], 1, w, 1);
-            w[MAX_CELLS] += coef; // Note that the bias is 1 so we do not have to multiply
+                // w -= eta * d_err * (1 - o^2) * input
+                coef = ETA * d_err * (o * o - 1);
+                cblas_daxpy(MAX_CELLS, coef, &TRAIN[j * MAX_CELLS], 1, w, 1);
+                w[MAX_CELLS] += coef; // Note that the bias is 1 so we do not have to multiply
+            }
         }
-
         // Test
         err = 0;
         for (j = 0; j < TEST_SIZE; j++){ // For each training data
@@ -53,7 +54,7 @@ void test(){
             err += (o - LABELS_TE[j]) * (o - LABELS_TE[j]);
         }
 
-        rps[i].score = err;
+        rps[i].score = err / TEST_SIZE;
     }
 }
 
@@ -134,6 +135,7 @@ void mutation(){
         n = rps[i].n_types;
         vdRngGaussian(VSL_RNG_METHOD_GAUSSIAN_BOXMULLER, STREAM,
                 1, &rps[i].decay, rps[i].decay, WIDTH/20.0);
+        if (rps[i].decay < 1) rps[i].decay = 1; // Cannot be smaller than 1
 
         // Randomly change one of the axon descriptors (same for dendrites)
         rps[i].axons[rand() % n] ^= (int)(rand() - RAND_MAX);
@@ -143,6 +145,9 @@ void mutation(){
             // Mutate polarities, in very small amount per time
             vdRngGaussian(VSL_RNG_METHOD_GAUSSIAN_BOXMULLER, STREAM,
                           1, &rps[i].polarities[j], rps[i].polarities[j], 0.01);
+            // Clip
+            if (rps[i].polarities[j] > 1) rps[i].polarities[j] = 1;
+            else if (rps[i].polarities[j] < -1) rps[i].polarities[j] = -1;
 
             chance = rand() % 100;
             // 0.5 probability the number of cells will decrease/increase by 1
@@ -189,7 +194,11 @@ int main(int argc, char **argv){
         }
 	}
 
-	save(rps, stdout, (int)(NUM_INDIVIDUALS * 0.25));
+    // Test and sort the retinas
+    test();
+    qsort(rps, NUM_INDIVIDUALS, sizeof(RetinaParam), comparator);
+
+	save(rps);
 
     fprintf(stderr, "Done. Removing trashes\n");
 

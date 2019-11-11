@@ -17,11 +17,14 @@ if [ ! -f DATA ] || [ ! -f LABELS ] ; then
 	./data_generator
 fi
 
-# Output the results to the user-specified file
-if [ -z "$1" ] ; then
-	echo "Results will be printed to STDOUT"
-	./GA
-else
-	echo "Results will be saved to '$1'"
-	./GA > $1
+if [ ! -d results ] ; then
+	mkdir results
 fi
+
+# Copy the environment variables and data
+for i in PARAM DATA LABELS ;
+do
+	cp "$i" results/
+done
+
+./GA

@@ -16,7 +16,7 @@ double affinity(RetinaParam *rp, int i, int j){
         if (buff & 0x80000000) counter--;
         buff <<= 1;
     }
-    return counter / 32;
+    return counter / 8 * sizeof(int);
 }
 
 void mk_connection(RetinaParam *rp){

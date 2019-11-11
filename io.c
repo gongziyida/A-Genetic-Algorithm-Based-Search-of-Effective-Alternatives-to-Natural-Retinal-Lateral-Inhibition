@@ -7,8 +7,8 @@
 //#include "retina.h"
 #include "io.h"
 
-int MAX_ITERATIONS, NUM_INDIVIDUALS, NUM_ELITES, TRAIN_SIZE, TEST_SIZE, SIM_TIME,
-        MAX_TYPES, MAX_CELLS, WIDTH;
+int MAX_ITERATIONS, NUM_EPOCHS, NUM_INDIVIDUALS, NUM_ELITES, TRAIN_SIZE, TEST_SIZE,
+    SIM_TIME, MAX_TYPES, MAX_CELLS, WIDTH;
 double ETA;
 double *TRAIN;
 double *TEST;
@@ -21,6 +21,7 @@ char *LABELS = "LABELS";
 
 char *PARAM_FORMAT =
         "Max Iterations = %d\n"
+        "Num Epochs = %d\n"
         "Num Individuals = %d\n"
         "Num Elites = %d\n"
         "Train Size = %d\n"
@@ -34,8 +35,8 @@ char *PARAM_FORMAT =
 void load(){
     FILE *fparam = fopen(PARAM, "r");
     // Read parameters
-    fscanf(fparam, PARAM_FORMAT, &MAX_ITERATIONS, &NUM_INDIVIDUALS, &NUM_ELITES,
-            &TEST_SIZE, &TRAIN_SIZE, &SIM_TIME, &ETA, &MAX_TYPES, &MAX_CELLS, &WIDTH);
+    fscanf(fparam, PARAM_FORMAT, &MAX_ITERATIONS, &NUM_EPOCHS, &NUM_INDIVIDUALS, &NUM_ELITES,
+            &TRAIN_SIZE, &TEST_SIZE, &SIM_TIME, &ETA, &MAX_TYPES, &MAX_CELLS, &WIDTH);
 
     fclose(fparam);
 
@@ -82,17 +83,16 @@ void free_data(){
     mkl_free(LABELS_TE);
 }
 
-void save(RetinaParam *rps, FILE *f, int top){
+void save(RetinaParam *rps){
     int nfrom, nto;
+    char fname[20];
+    FILE *f;
 
-    fprintf(f, "ENVIRONMENT VARIABLES\n");
-    fprintf(f, PARAM_FORMAT, MAX_ITERATIONS, NUM_INDIVIDUALS, NUM_ELITES,
-            TRAIN_SIZE, TEST_SIZE, SIM_TIME, ETA, MAX_TYPES, MAX_CELLS, WIDTH);
+    for (int i = 0; i < NUM_ELITES; i++){
+        snprintf(fname, 20, "results/%d.txt", i);
 
-    fprintf(f, "\n******\n\n");
-
-    for (int i = 0; i < top; i++){
-        fprintf(f, "INDIVIDUAL %d\n", i);
+        f = fopen(fname, "w");
+        fprintf(f, "%f\n", rps[i].score);
 
         for (int j = 0; j < rps[i].n_connections; j++) {
             if (rps[i].c[j].w == NULL) continue;
@@ -100,7 +100,7 @@ void save(RetinaParam *rps, FILE *f, int top){
             nfrom = rps[i].n_cells[rps[i].c[j].from];
             nto = rps[i].n_cells[rps[i].c[j].to];
 
-            fprintf(f, "%d -> %d (%d * %d)\n", rps[i].c[j].from, rps[i].c[j].to, nto, nfrom);
+            fprintf(f, "# %d %d %d %d\n", rps[i].c[j].from, rps[i].c[j].to, nto, nfrom);
 
             for (int p = 0; p < nto; p++) {
                 for (int q = 0; q < nfrom; q++) {
@@ -108,9 +108,7 @@ void save(RetinaParam *rps, FILE *f, int top){
                 }
                 fprintf(f, "\n");
             }
-            fprintf(f, "\n------\n\n");
         }
-
-        fprintf(f, "******\n\n");
+        fclose(f);
     }
 }

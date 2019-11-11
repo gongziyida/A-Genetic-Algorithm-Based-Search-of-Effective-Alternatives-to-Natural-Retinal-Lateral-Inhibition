@@ -24,4 +24,4 @@ GA: $(OBJS) $(DEPS)
 	$(CC) $(CFLAGS) $(OBJS) -o $@ $(INCLUDES) $(LDFLAGS) $(LDLIBS)
 
 clean:
-	rm -rf GA obj DATA LABELS
+	rm -rf GA obj results DATA LABELS
