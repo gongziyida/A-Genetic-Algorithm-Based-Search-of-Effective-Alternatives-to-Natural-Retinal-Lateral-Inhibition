@@ -53,6 +53,8 @@ void test(){
             err += (o - LABELS_TE[j]) * (o - LABELS_TE[j]);
         }
 
+        // TODO: energy cost due to number of neurons
+        //  *after implementing variable receptors & ganglion cells*
         rps[i].score = err / TEST_SIZE;
     }
 }
@@ -100,9 +102,7 @@ void selection(){
 }
 
 void crossover(){
-    // Sort the retinas
-    qsort(rps, NUM_INDIVIDUALS, sizeof(RetinaParam), comparator);
-
+    // TODO: crossover some of the types
     RetinaParam *children = &rps[NUM_ELITES]; // Index start from NUM_ELITES
 
     int p1i, p2i, n;
@@ -146,6 +146,7 @@ void mutation(){
         rps[i].axons[rand() % n] ^= (int)(rand() - RAND_MAX);
         rps[i].dendrites[rand() % n] ^= (int)(rand() - RAND_MAX);
 
+        // TODO: variable receptors
         for (j = 1; j < n; j++){ // Skip receptors
             // Mutate polarities, in very small amount per time
             vdRngGaussian(VSL_RNG_METHOD_GAUSSIAN_BOXMULLER, STREAM,
@@ -175,6 +176,7 @@ int main(int argc, char **argv){
     vslNewStream(&STREAM, VSL_BRNG_MT19937, 1);
 
     int i, j;
+    double max_score, min_score, total_score;
 
     fprintf(stderr, "Initializing retinas\n");
     // Initialize individual space
@@ -187,14 +189,31 @@ int main(int argc, char **argv){
     p1 = mkl_malloc(NUM_INDIVIDUALS * sizeof(int), 64);
     p2 = mkl_malloc(NUM_INDIVIDUALS * sizeof(int), 64);
 
+    // Open a log
+    FILE *log = fopen("results/LOG", "w");
 
     fprintf(stderr, "Simulation in progress\n");
     for (i = 0; i < MAX_ITERATIONS; i++){
         fprintf(stderr, "\r%d", i);
         fflush(stderr);
         test();
+
+        // Sort the retinas
+        qsort(rps, NUM_INDIVIDUALS, sizeof(RetinaParam), comparator);
+
+        // Output stats
+        total_score = 0;
+        max_score = -1;
+        min_score = 999999;
+        for (j = 0; j < NUM_INDIVIDUALS; j++){
+            total_score += rps[j].score;
+            if (rps[j].score > max_score) max_score = rps[j].score;
+            else if (rps[j].score < min_score) min_score = rps[j].score;
+        }
+        fprintf(log, "%d %f %f %f", i, min_score, max_score, total_score / NUM_INDIVIDUALS);
+
         selection();
-	    crossover();
+        crossover();
 	    mutation();
 	    for (j = 0; j < NUM_INDIVIDUALS; j++){
             mk_connection(&rps[j]);
@@ -218,6 +237,8 @@ int main(int argc, char **argv){
 	free(rps);
 	mkl_free(p1);
 	mkl_free(p2);
+
+	fclose(log);
 
 	return 0;
 }
