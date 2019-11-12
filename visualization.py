@@ -43,12 +43,12 @@ def save_img(fname):
     # draw
     fig, ax = plt.subplots(1)
     fig.set_size_inches(8, 8)
-    nx.draw(g, pos=pos, edge_cmap=plt.get_cmap('Greys'), edge_color=edge_colors,
+    nx.draw(g, pos=pos, edge_cmap=plt.get_cmap('bwr'), edge_color=edge_colors,
             connectionstyle='arc3,rad=0.1', ax=ax)
     fig.savefig(fname, dpi=300, bbox_inches='tight')
 
 
 if __name__ == '__main__':
-    fname = 'results/%d.txt'
-    for i in range(sys.argv[1]):
-        pass # TODO: Visualization
+    fname = 'results/%d'
+    for i in range(int(sys.argv[1])):
+        save_img(fname % i)
