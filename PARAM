@@ -1,5 +1,4 @@
 Max Iterations = 100
-Num Epochs = 5
 Num Individuals = 100
 Num Elites = 25
 Train Size = 30

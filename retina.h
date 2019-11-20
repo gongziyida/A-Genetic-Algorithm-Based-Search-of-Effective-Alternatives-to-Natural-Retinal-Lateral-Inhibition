@@ -15,7 +15,7 @@ typedef struct Connections{
 typedef struct RetinaParam{
     // TODO: add ganglion cells
     double decay;       // Decay of weight w.r.t. distance
-    int n_types;        // Number of types of interneurons + one type of receptor
+    int n_types;        // Number of types of interneurons + one type of receptor + one type of ganglion
     int *axons;         // Binary axon descriptors of interneuron types
     int *dendrites;     // Binary dendrite descriptors of interneuron types
     double *polarities; // Polarities of interneuron types

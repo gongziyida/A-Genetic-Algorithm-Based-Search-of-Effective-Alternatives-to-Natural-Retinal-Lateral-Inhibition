@@ -6,7 +6,7 @@
 #include "retina.h"
 
 #define MY_PROJECT_IO_H
-extern int MAX_ITERATIONS, NUM_EPOCHS, NUM_INDIVIDUALS, NUM_ELITES, TRAIN_SIZE, TEST_SIZE,
+extern int MAX_ITERATIONS, NUM_INDIVIDUALS, NUM_ELITES, TRAIN_SIZE, TEST_SIZE,
             SIM_TIME, MAX_TYPES, MAX_CELLS, WIDTH;
 extern double ETA;
 extern double *TRAIN;   // Training dataset

@@ -77,7 +77,7 @@ void init_retina(RetinaParam *rp){
     vdRngUniform(VSL_RNG_METHOD_UNIFORM_STD, stream, 1, &rp->decay, 0, WIDTH);
 
     int n; // n_types
-    viRngUniform(VSL_RNG_METHOD_UNIFORM_STD, stream, 1, &n, 2, MAX_TYPES + 1);
+    viRngUniform(VSL_RNG_METHOD_UNIFORM_STD, stream, 1, &n, 3, MAX_TYPES + 2);
 
     rp->n_types = n;
     rp->n_connections = n * n;

@@ -27,20 +27,18 @@ void test(){
 
         // Train
         vdRngUniform(VSL_RNG_METHOD_UNIFORM_STD, STREAM, MAX_CELLS, w, -1, 1); // Randomize w
-        for (k = 0; k < NUM_EPOCHS; k++){
-            for (j = 0; j < TRAIN_SIZE; j++){ // For each training data
-                process(&rps[i], &TRAIN[j * MAX_CELLS]);
+        for (j = 0; j < TRAIN_SIZE; j++){ // For each training data
+            process(&rps[i], &TRAIN[j * MAX_CELLS]);
 
-                cblas_ddot(MAX_CELLS, w, 1, rps[i].new_states, 1); // net = w^T x
-                o = tanh(o + w[MAX_CELLS]); // out = tanh(net + w_b * bias)
+            cblas_ddot(MAX_CELLS, w, 1, rps[i].new_states, 1); // net = w^T x
+            o = tanh(o + w[MAX_CELLS]); // out = tanh(net + w_b * bias)
 
-                d_err = o - LABELS_TR[j];
+            d_err = o - LABELS_TR[j];
 
-                // w -= eta * d_err * (1 - o^2) * input
-                coef = ETA * d_err * (o * o - 1);
-                cblas_daxpy(MAX_CELLS, coef, &TRAIN[j * MAX_CELLS], 1, w, 1);
-                w[MAX_CELLS] += coef; // Note that the bias is 1 so we do not have to multiply
-            }
+            // w -= eta * d_err * (1 - o^2) * input
+            coef = ETA * d_err * (o * o - 1);
+            cblas_daxpy(MAX_CELLS, coef, &TRAIN[j * MAX_CELLS], 1, w, 1);
+            w[MAX_CELLS] += coef; // Note that the bias is 1 so we do not have to multiply
         }
         // Test
         err = 0;
@@ -102,32 +100,28 @@ void selection(){
 }
 
 void crossover(){
-    // TODO: crossover some of the types
     RetinaParam *children = &rps[NUM_ELITES]; // Index start from NUM_ELITES
 
-    int p1i, p2i, n;
+    int p, n;
 
-    // Single-point crossover
     int k;
     for (int i = 0; i < NUM_INDIVIDUALS - NUM_ELITES; i++){
-        if (rand() % 100 < 50) {
-            p1i = p1[i];
-            p2i = p2[i];
-        } else{
-            p1i = p2[i];
-            p2i = p1[i];
-        }
+        if (rand() % 100 < 50)  p = p1[i];
+        else                    p = p2[i];
 
-        n = rps[p2i].n_types;
+        n = rps[p].n_types;
 
-        children[i].decay = rps[p1i].decay;
+        children[i].decay = rps[p].decay;
         children[i].n_types = n;
 
         for (k = 0; k < MAX_TYPES; k++){
-            children[i].axons[k] = rps[p2i].axons[k];
-            children[i].dendrites[k] = rps[p2i].dendrites[k];
-            children[i].polarities[k] = rps[p2i].polarities[k];
-            children[i].n_cells[k] = rps[p2i].n_cells[k];
+            if (rand() % 100 < 50)  p = p1[i];
+            else                    p = p2[i];
+
+            children[i].axons[k] = rps[p].axons[k];
+            children[i].dendrites[k] = rps[p].dendrites[k];
+            children[i].polarities[k] = rps[p].polarities[k];
+            children[i].n_cells[k] = rps[p].n_cells[k];
         }
     }
 }
@@ -146,7 +140,7 @@ void mutation(){
         rps[i].axons[rand() % n] ^= (int)(rand() - RAND_MAX);
         rps[i].dendrites[rand() % n] ^= (int)(rand() - RAND_MAX);
 
-        // TODO: variable receptors
+        // TODO: variable receptors (requires the input to be a function rather than discrete)
         for (j = 1; j < n; j++){ // Skip receptors
             // Mutate polarities, in very small amount per time
             vdRngGaussian(VSL_RNG_METHOD_GAUSSIAN_BOXMULLER, STREAM,

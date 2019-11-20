@@ -7,7 +7,7 @@
 //#include "retina.h"
 #include "io.h"
 
-int MAX_ITERATIONS, NUM_EPOCHS, NUM_INDIVIDUALS, NUM_ELITES, TRAIN_SIZE, TEST_SIZE,
+int MAX_ITERATIONS, NUM_INDIVIDUALS, NUM_ELITES, TRAIN_SIZE, TEST_SIZE,
     SIM_TIME, MAX_TYPES, MAX_CELLS, WIDTH;
 double ETA;
 double *TRAIN;
@@ -21,7 +21,6 @@ char *LABELS = "LABELS";
 
 char *PARAM_FORMAT =
         "Max Iterations = %d\n"
-        "Num Epochs = %d\n"
         "Num Individuals = %d\n"
         "Num Elites = %d\n"
         "Train Size = %d\n"
@@ -35,7 +34,7 @@ char *PARAM_FORMAT =
 void load(){
     FILE *fparam = fopen(PARAM, "r");
     // Read parameters
-    fscanf(fparam, PARAM_FORMAT, &MAX_ITERATIONS, &NUM_EPOCHS, &NUM_INDIVIDUALS, &NUM_ELITES,
+    fscanf(fparam, PARAM_FORMAT, &MAX_ITERATIONS, &NUM_INDIVIDUALS, &NUM_ELITES,
             &TRAIN_SIZE, &TEST_SIZE, &SIM_TIME, &ETA, &MAX_TYPES, &MAX_CELLS, &WIDTH);
 
     fclose(fparam);
