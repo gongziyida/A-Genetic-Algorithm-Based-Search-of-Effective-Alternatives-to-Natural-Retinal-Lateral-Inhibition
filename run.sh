@@ -1,4 +1,4 @@
-#! /bin/sh
+#! /bin/bash
 
 if [ ! -f PARAM ] ; then
 	echo "Configuration file 'PARAM' does not exist."
@@ -6,14 +6,12 @@ if [ ! -f PARAM ] ; then
 fi
 
 # Run the following if there is a linking error
-# source /opt/intel/compilers_and_libraries_2019.5.281/linux/mkl/bin/mklvars.sh intel64
+source /opt/intel/compilers_and_libraries_2019.5.281/linux/mkl/bin/mklvars.sh intel64
 
 make
 
-if [ ! -f DATA ] || [ ! -f LABELS ] ; then
-	echo "Generating data"
-	./data_generator
-fi
+echo "Generating data"
+./data_generator
 
 if [ ! -d results ] ; then
 	mkdir results

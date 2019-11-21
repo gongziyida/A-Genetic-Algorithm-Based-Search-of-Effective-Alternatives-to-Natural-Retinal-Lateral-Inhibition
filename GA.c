@@ -20,25 +20,25 @@ VSLStreamStatePtr STREAM; // Random generator stream
 
 void test(){
     double w[MAX_CELLS+1]; // Perceptron connection matrix
-    double o, coef, err, d_err;
-    int i, k, j;
+    double o, coef, err;
+    int i, j;
 
     for (i = 0; i < NUM_INDIVIDUALS; i++){
-
         // Train
         vdRngUniform(VSL_RNG_METHOD_UNIFORM_STD, STREAM, MAX_CELLS, w, -1, 1); // Randomize w
         for (j = 0; j < TRAIN_SIZE; j++){ // For each training data
             process(&rps[i], &TRAIN[j * MAX_CELLS]);
 
             cblas_ddot(MAX_CELLS, w, 1, rps[i].new_states, 1); // net = w^T x
-            o = tanh(o + w[MAX_CELLS]); // out = tanh(net + w_b * bias)
+            o = 1 / (1 + exp(o + w[MAX_CELLS])); // out = sigmoid(net + w_b * bias)
 
-            d_err = o - LABELS_TR[j];
+            if (LABELS_TR[j] == 1) // w -= - eta * 1 / o * o * (1 - o) * input
+                coef = - ETA * (1 - o);
+            else // w -= - eta * 1 / (1 - o) * o * (1 - o) * input
+                coef = - ETA * o;
 
-            // w -= eta * d_err * (1 - o^2) * input
-            coef = ETA * d_err * (o * o - 1);
             cblas_daxpy(MAX_CELLS, coef, &TRAIN[j * MAX_CELLS], 1, w, 1);
-            w[MAX_CELLS] += coef; // Note that the bias is 1 so we do not have to multiply
+            w[MAX_CELLS] -= coef; // Note that the bias is 1 so we do not have to multiply
         }
         // Test
         err = 0;
@@ -46,28 +46,28 @@ void test(){
             process(&rps[i], &TEST[j*MAX_CELLS]);
 
             cblas_ddot(MAX_CELLS, w, 1, rps[i].new_states, 1); // net = w^T x
-            o = tanh(o + w[MAX_CELLS]); // out = tanh(net + w_b * bias)
+            o = 1 / (1 + exp(o + w[MAX_CELLS])); // out = sigmoid(net + w_b * bias)
 
-            err += (o - LABELS_TE[j]) * (o - LABELS_TE[j]);
+            if (LABELS_TR[j] == 1)  err += -log(o);
+            else                    err += -log(1 - o);
         }
 
-        // TODO: energy cost due to number of neurons
-        //  *after implementing variable receptors & ganglion cells*
-        rps[i].score = err / TEST_SIZE;
+        err /= TEST_SIZE;
+        rps[i].cost = err * rps[i].total_n_cells;
     }
 }
 
 int comparator(const void *rp1, const void *rp2){
     /*
-     * If rp1's score > rp2's score (rp1 is worse), rp1 ranks lower than rp2. Return 1.
-     * If rp1's score < rp2's score (rp2 is worse), rp1 ranks higher than rp2. Return -1.
+     * If rp1's cost > rp2's cost (rp1 is worse), rp1 ranks lower than rp2. Return 1.
+     * If rp1's cost < rp2's cost (rp2 is worse), rp1 ranks higher than rp2. Return -1.
      * Else, return 0.
      */
     const RetinaParam *rpA = (RetinaParam *) rp1;
     const RetinaParam *rpB = (RetinaParam *) rp2;
 
-    if (rpA->score > rpB->score) return 1;
-    else if (rpA->score < rpB->score) return -1;
+    if (rpA->cost > rpB->cost) return 1;
+    else if (rpA->cost < rpB->cost) return -1;
     else return 0;
 }
 
@@ -79,10 +79,10 @@ void selection(){
         rival1 = rand() % NUM_INDIVIDUALS;
         rival2 = rand() % NUM_INDIVIDUALS;
 
-        if (rand() % 100 < 75){ // 0.75 chance to pick the one with the lower score (winner)
-            p1[i] = (rps[rival1].score < rps[rival2].score)? rival1 : rival2;
-        } else { // 0.25 chance to pick the one with the high score (loser)
-            p1[i] = (rps[rival1].score < rps[rival2].score)? rival2 : rival1;
+        if (rand() % 100 < 75){ // 0.75 chance to pick the one with the lower cost (winner)
+            p1[i] = (rps[rival1].cost < rps[rival2].cost)? rival1 : rival2;
+        } else { // 0.25 chance to pick the one with the high cost (loser)
+            p1[i] = (rps[rival1].cost < rps[rival2].cost)? rival2 : rival1;
         }
 
         do{ // Avoid self-crossover
@@ -92,9 +92,9 @@ void selection(){
         } while (rival1 == p1[i] || rival2 == p1[i]);
 
         if (rand() % 100 < 75){ // Similar to above
-            p2[i] = (rps[rival1].score < rps[rival2].score)? rival1 : rival2;
+            p2[i] = (rps[rival1].cost < rps[rival2].cost)? rival1 : rival2;
         } else {
-            p2[i] = (rps[rival1].score < rps[rival2].score)? rival2 : rival1;
+            p2[i] = (rps[rival1].cost < rps[rival2].cost)? rival2 : rival1;
         }
     }
 }
@@ -102,17 +102,16 @@ void selection(){
 void crossover(){
     RetinaParam *children = &rps[NUM_ELITES]; // Index start from NUM_ELITES
 
-    int p, n;
+    int p;
 
     int k;
     for (int i = 0; i < NUM_INDIVIDUALS - NUM_ELITES; i++){
         if (rand() % 100 < 50)  p = p1[i];
         else                    p = p2[i];
 
-        n = rps[p].n_types;
-
+        //n = rps[p].n_types;
         children[i].decay = rps[p].decay;
-        children[i].n_types = n;
+        //children[i].n_types = n;
 
         for (k = 0; k < MAX_TYPES; k++){
             if (rand() % 100 < 50)  p = p1[i];
@@ -131,6 +130,7 @@ void mutation(){
     int n, j, chance;
     for (int i = NUM_ELITES; i < NUM_INDIVIDUALS; i++){
         n = rps[i].n_types;
+
         vdRngGaussian(VSL_RNG_METHOD_GAUSSIAN_BOXMULLER, STREAM,
                 1, &rps[i].decay, rps[i].decay, WIDTH/20.0);
         if (rps[i].decay < 0) rps[i].decay = 0; // Cannot be smaller than 0
@@ -170,7 +170,7 @@ int main(int argc, char **argv){
     vslNewStream(&STREAM, VSL_BRNG_MT19937, 1);
 
     int i, j;
-    double max_score, min_score, total_score;
+    double max_cost, min_cost, total_cost;
 
     fprintf(stderr, "Initializing retinas\n");
     // Initialize individual space
@@ -185,6 +185,7 @@ int main(int argc, char **argv){
 
     // Open a log
     FILE *log = fopen("results/LOG", "w");
+    fprintf(log, "# MIN MAX AVG\n");
 
     fprintf(stderr, "Simulation in progress\n");
     for (i = 0; i < MAX_ITERATIONS; i++){
@@ -196,15 +197,15 @@ int main(int argc, char **argv){
         qsort(rps, NUM_INDIVIDUALS, sizeof(RetinaParam), comparator);
 
         // Output stats
-        total_score = 0;
-        max_score = -1;
-        min_score = 999999;
+        total_cost = 0;
+        max_cost = -1;
+        min_cost = 999999;
         for (j = 0; j < NUM_INDIVIDUALS; j++){
-            total_score += rps[j].score;
-            if (rps[j].score > max_score) max_score = rps[j].score;
-            else if (rps[j].score < min_score) min_score = rps[j].score;
+            total_cost += rps[j].cost;
+            if (rps[j].cost > max_cost) max_cost = rps[j].cost;
+            if (rps[j].cost < min_cost) min_cost = rps[j].cost;
         }
-        fprintf(log, "%d %f %f %f", i, min_score, max_score, total_score / NUM_INDIVIDUALS);
+        fprintf(log, "%d %f %f %f\n", i, min_cost, max_cost, total_cost / NUM_INDIVIDUALS);
 
         selection();
         crossover();

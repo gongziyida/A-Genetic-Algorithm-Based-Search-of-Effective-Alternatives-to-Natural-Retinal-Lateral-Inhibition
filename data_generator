@@ -4,11 +4,11 @@ import numpy as np
 
 with open('PARAM', 'r') as f:
     for i, line in enumerate(f):
-        if i == 4:
+        if i == 3:
             TRAIN_SIZE = int(line.split(' = ')[1])
-        if i == 5:
+        if i == 4:
             TEST_SIZE = int(line.split(' = ')[1])
-        if i == 9:
+        if i == 8:
             MAX_CELLS = int(line.split(' = ')[1])
 
 ref_prey = np.zeros(MAX_CELLS, dtype=np.float64)
@@ -30,7 +30,7 @@ def gen_data(num):
     t[num//2:] = perturb(ref_pred, num//2)
 
     l = np.ones(num, dtype=np.int32)
-    l[num//2:] = -1
+    l[num//2:] = 0 # Pred with label 0, prey with label 1
     indices = np.arange(start=0, stop=num)
     np.random.shuffle(indices)
     t = t[indices]

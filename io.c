@@ -91,7 +91,7 @@ void save(RetinaParam *rps){
         snprintf(fname, 20, "results/%d.txt", i);
 
         f = fopen(fname, "w");
-        fprintf(f, "%f\n", rps[i].score);
+        fprintf(f, "%f\n", rps[i].cost);
         fprintf(f, "%d\n", rps[i].n_types);
 
         for (int j = 0; j < rps[i].n_connections; j++){

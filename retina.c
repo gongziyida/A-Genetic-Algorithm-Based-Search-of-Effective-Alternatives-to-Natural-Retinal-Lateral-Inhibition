@@ -9,6 +9,8 @@
 #include "retina.h"
 #include "io.h"
 
+VSLStreamStatePtr STREAM;
+
 double affinity(RetinaParam *rp, int i, int j){
     double counter = 32.0;
     int buff = rp->axons[j] ^ rp->dendrites[i];
@@ -27,9 +29,14 @@ void mk_connection(RetinaParam *rp){
     int ni, nj; // Number of cells
     double d; // Distance-dependent weight factor
 
+    rp->total_n_cells = 0;
+
     // Calculate the intervals first
-    for (i = 0; i < n; i++)
+    for (i = 0; i < n; i++){
         rp->intvl[i] = (double) WIDTH / (rp->n_cells[i] + 1.0);
+        rp->total_n_cells += rp->n_cells[i];
+    }
+
 
     // Make the weight from j to i
     for (i = 0; i < n - 1; i++){
@@ -56,13 +63,19 @@ void mk_connection(RetinaParam *rp){
             for (p = 0; p < ni; p++){
                 for (q = 0; q < nj; q++){
                     d = exp(-decay * abs(rp->intvl[i] * (p + 1) - rp->intvl[j] * (q + 1)) / WIDTH);
-                    if (d >= 1e-4){
-                        rp->c[kij].w[p * nj + q] = d * rp->polarities[j] * affinityij;
-                        rp->c[kji].w[q * ni + p] = d * rp->polarities[i] * affinityji;
-                    } else{ // d < 1e-4 or is nan (overflow)
+                    rp->c[kij].w[p * nj + q] = d * rp->polarities[j] * affinityij;
+                    rp->c[kji].w[q * ni + p] = d * rp->polarities[i] * affinityji;
+
+                    // Clip
+                    if (rp->c[kij].w[p * nj + q] > 1)           rp->c[kij].w[p * nj + q] = 1;
+                    else if (rp->c[kij].w[p * nj + q] < -1)     rp->c[kij].w[p * nj + q] = -1;
+                    else if (fabs(rp->c[kij].w[p * nj + q]) < 0.01 || isnan(rp->c[kij].w[p * nj + q]))
                         rp->c[kij].w[p * nj + q] = 0;
+
+                    if (rp->c[kji].w[q * ni + p] > 1)           rp->c[kji].w[q * ni + p] = 1;
+                    else if (rp->c[kji].w[q * ni + p] < -1)     rp->c[kji].w[q * ni + p] = -1;
+                    else if (fabs(rp->c[kji].w[q * ni + p]) < 0.01 || isnan(rp->c[kji].w[q * ni + p]))
                         rp->c[kji].w[q * ni + p] = 0;
-                    }
                 }
             }
         }
@@ -70,29 +83,28 @@ void mk_connection(RetinaParam *rp){
 }
 
 void init_retina(RetinaParam *rp){
-    // Random stream init
-    VSLStreamStatePtr stream;
-    vslNewStream(&stream, VSL_BRNG_MT19937, 1);
+    if (STREAM == NULL)// Random STREAM init
+        vslNewStream(&STREAM, VSL_BRNG_MT19937, 1);
 
-    vdRngUniform(VSL_RNG_METHOD_UNIFORM_STD, stream, 1, &rp->decay, 0, WIDTH);
+    vdRngUniform(VSL_RNG_METHOD_UNIFORM_STD, STREAM, 1, &rp->decay, 0, WIDTH);
 
     int n; // n_types
-    viRngUniform(VSL_RNG_METHOD_UNIFORM_STD, stream, 1, &n, 3, MAX_TYPES + 2);
+    viRngUniform(VSL_RNG_METHOD_UNIFORM_STD, STREAM, 1, &n, 2, MAX_TYPES + 1);
 
     rp->n_types = n;
     rp->n_connections = n * n;
 
     rp->axons = mkl_malloc(MAX_TYPES * sizeof(double), 64);
-    viRngUniform(VSL_RNG_METHOD_UNIFORM_STD, stream, n, rp->axons, INT_MIN, INT_MAX);
+    viRngUniform(VSL_RNG_METHOD_UNIFORM_STD, STREAM, n, rp->axons, INT_MIN, INT_MAX);
 
     rp->dendrites = mkl_malloc(MAX_TYPES * sizeof(double), 64);
-    viRngUniform(VSL_RNG_METHOD_UNIFORM_STD, stream, n, rp->dendrites, INT_MIN, INT_MAX);
+    viRngUniform(VSL_RNG_METHOD_UNIFORM_STD, STREAM, n, rp->dendrites, INT_MIN, INT_MAX);
 
     rp->polarities = mkl_malloc(MAX_TYPES * sizeof(double), 64);
-    vdRngUniform(VSL_RNG_METHOD_UNIFORM_STD, stream, n, rp->polarities, -1, 1);
+    vdRngUniform(VSL_RNG_METHOD_UNIFORM_STD, STREAM, n, rp->polarities, -1, 1);
 
     rp->n_cells = mkl_malloc(MAX_TYPES * sizeof(int), 64);
-    viRngUniform(VSL_RNG_METHOD_UNIFORM_STD, stream, n, rp->n_cells, 1, MAX_CELLS);
+    viRngUniform(VSL_RNG_METHOD_UNIFORM_STD, STREAM, n, rp->n_cells, 1, MAX_CELLS);
     rp->n_cells[0] = MAX_CELLS;
 
     rp->new_states = mkl_malloc(MAX_TYPES * MAX_CELLS * sizeof(double), 64);
@@ -108,6 +120,7 @@ void init_retina(RetinaParam *rp){
         for (j = i + 1; j < MAX_TYPES; j++) {
             kij = i * n + j;
             kji = j * n + i;
+
             rp->c[kij].w = mkl_malloc(size, 64);
             rp->c[kji].w = mkl_malloc(size, 64);
         }
