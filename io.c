@@ -106,7 +106,7 @@ void save(RetinaParam *rps){
 
             for (int p = 0; p < nto; p++) {
                 for (int q = 0; q < nfrom; q++) {
-                    fprintf(f, "%.4f ", rps[i].c[j].w[p*nfrom+q]);
+                    fprintf(f, "%.3f ", rps[i].c[j].w[p*nfrom+q]);
                 }
                 fprintf(f, "\n");
             }

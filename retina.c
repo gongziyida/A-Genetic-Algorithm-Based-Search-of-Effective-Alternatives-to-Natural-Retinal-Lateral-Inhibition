@@ -22,12 +22,14 @@ double affinity(RetinaParam *rp, int i, int j){
 }
 
 void mk_connection(RetinaParam *rp){
-    double affinityij, affinityji;
     int i, j, kij, kji, p, q;
     int n = rp->n_types;
-    double decay = rp->decay;
     int ni, nj; // Number of cells
+    double affinityij, affinityji;
+    double decay = rp->decay;
     double d; // Distance-dependent weight factor
+    double abs_maxij, abs_maxji; // Absolute max
+    double res; // Auxiliary var to store the result
 
     rp->total_n_cells = 0;
 
@@ -59,25 +61,35 @@ void mk_connection(RetinaParam *rp){
             affinityij = affinity(rp, i, j);
             affinityji = affinity(rp, j, i);
 
+            abs_maxij = 0;
+            abs_maxji = 0;
+
             // Calculate decay * affinity / distance
             for (p = 0; p < ni; p++){
                 for (q = 0; q < nj; q++){
                     d = exp(-decay * abs(rp->intvl[i] * (p + 1) - rp->intvl[j] * (q + 1)) / WIDTH);
-                    rp->c[kij].w[p * nj + q] = d * rp->polarities[j] * affinityij;
-                    rp->c[kji].w[q * ni + p] = d * rp->polarities[i] * affinityji;
 
-                    // Clip
-                    if (rp->c[kij].w[p * nj + q] > 1)           rp->c[kij].w[p * nj + q] = 1;
-                    else if (rp->c[kij].w[p * nj + q] < -1)     rp->c[kij].w[p * nj + q] = -1;
-                    else if (fabs(rp->c[kij].w[p * nj + q]) < 0.01 || isnan(rp->c[kij].w[p * nj + q]))
-                        rp->c[kij].w[p * nj + q] = 0;
+                    // Weights for cij
+                    res = d * rp->polarities[j] * affinityij;
+                    rp->c[kij].w[p * nj + q] = isnan(res) ? 0 : res;
 
-                    if (rp->c[kji].w[q * ni + p] > 1)           rp->c[kji].w[q * ni + p] = 1;
-                    else if (rp->c[kji].w[q * ni + p] < -1)     rp->c[kji].w[q * ni + p] = -1;
-                    else if (fabs(rp->c[kji].w[q * ni + p]) < 0.01 || isnan(rp->c[kji].w[q * ni + p]))
-                        rp->c[kji].w[q * ni + p] = 0;
+                    res = fabs(res);
+                    if (res < 0.05) rp->c[kij].w[p * nj + q] = 0; // Thresholding
+                    if (res > abs_maxij) abs_maxij = res;
+
+                    // Weights for cji
+                    res = d * rp->polarities[i] * affinityji;
+                    rp->c[kji].w[q * ni + p] = isnan(res) ? 0 : res;
+
+                    res = fabs(res);
+                    if (res < 0.05) rp->c[kij].w[q * ni + p] = 0; // Thresholding
+                    if (res > abs_maxji) abs_maxji = res;
                 }
             }
+
+            // Normalize between -1 and 1
+            if (abs_maxij > 0) cblas_daxpy(ni*nj, 1/abs_maxij, rp->c[kij].w, 1, rp->c[kij].w, 1);
+            if (abs_maxji > 0) cblas_daxpy(ni*nj, 1/abs_maxji, rp->c[kji].w, 1, rp->c[kji].w, 1);
         }
     }
 }
