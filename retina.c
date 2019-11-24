@@ -67,7 +67,8 @@ void mk_connection(RetinaParam *rp){
             // Calculate decay * affinity / distance
             for (p = 0; p < ni; p++){
                 for (q = 0; q < nj; q++){
-                    d = exp(-decay * abs(rp->intvl[i] * (p + 1) - rp->intvl[j] * (q + 1)) / WIDTH);
+                    d = exp(-decay * fabs(rp->intvl[i] * (p - 0.5 * (ni - 1)) -
+                            rp->intvl[j] * (q - 0.5 * (nj - 1))) / WIDTH);
 
                     // Weights for cij
                     res = d * rp->polarities[j] * affinityij;
