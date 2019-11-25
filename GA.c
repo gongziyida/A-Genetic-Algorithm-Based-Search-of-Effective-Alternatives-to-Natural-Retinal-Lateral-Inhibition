@@ -20,10 +20,13 @@ VSLStreamStatePtr STREAM; // Random generator stream
 
 void test(){
     double w[MAX_CELLS / 5 + 1]; // Perceptron connection matrix
-    double o, coef, err;
+    double o, coef, err, max_cost;
     int i, j;
+    int should_die;
 
     for (i = 0; i < NUM_INDIVIDUALS; i++){
+        should_die = 0;
+
         // Train
         vdRngUniform(VSL_RNG_METHOD_UNIFORM_STD, STREAM, MAX_CELLS / 5, w, -1, 1); // Randomize w
         for (j = 0; j < TRAIN_SIZE; j++){ // For each training data
@@ -33,9 +36,12 @@ void test(){
             o = cblas_ddot(MAX_CELLS / 5, w, 1,
                     &rps[i].new_states[MAX_CELLS * (rps[i].n_types - 1)], 1);
 
-            o = 1 / (1 + exp(o + w[MAX_CELLS / 5])); // out = sigmoid(net + w_b * bias)
+            if (isinf(o)){
+                should_die = 1;
+                break;
+            }
 
-            if (isinf(o)) break;
+            o = 1 / (1 + exp(o + w[MAX_CELLS / 5])); // out = sigmoid(net + w_b * bias)
 
             if (LABELS_TR[j] == 1) // w -= - eta * 1 / o * o * (1 - o) * input
                 coef = - ETA * (1 - o);
@@ -48,13 +54,12 @@ void test(){
         // Test
         err = 0;
         for (j = 0; j < TEST_SIZE; j++){ // For each training data
+            if (should_die) break;
             process(&rps[i], &TEST[j*MAX_CELLS]);
 
             // net = w^T x
             o = cblas_ddot(MAX_CELLS / 5, w, 1, &rps[i].new_states[MAX_CELLS * (rps[i].n_types - 1)], 1);
             o = 1 / (1 + exp(o + w[MAX_CELLS / 5])); // out = sigmoid(net + w_b * bias)
-
-            if (isinf(o)) break;
 
             if (LABELS_TR[j] == 1)
                 err += -log(o);
@@ -62,12 +67,17 @@ void test(){
                 err += -log(1 - o);
         }
 
-        if (isinf(err))
-            rps[i].cost = 500;
+        if (should_die || isinf(err))
+            rps[i].cost = INT_MAX;
         else{
             err /= TEST_SIZE;
             rps[i].cost = err + rps[i].total_n_cells / (MAX_TYPES * MAX_CELLS);
+            if (rps[i].cost > max_cost) max_cost = rps[i].cost;
         }
+    }
+
+    for (i = 0; i < NUM_INDIVIDUALS; i++){
+        if (rps[i].cost == INT_MAX) rps[i].cost = max_cost + 1;
     }
 }
 
@@ -93,9 +103,9 @@ void selection(){
         rival1 = rand() % NUM_INDIVIDUALS;
         rival2 = rand() % NUM_INDIVIDUALS;
 
-        if (rand() % 100 < 75){ // 0.75 chance to pick the one with the lower cost (winner)
+        if (rand() % 100 < 90){ // 0.90 chance to pick the one with the lower cost (winner)
             p1[i] = (rps[rival1].cost < rps[rival2].cost)? rival1 : rival2;
-        } else { // 0.25 chance to pick the one with the high cost (loser)
+        } else { // 0.10 chance to pick the one with the high cost (loser)
             p1[i] = (rps[rival1].cost < rps[rival2].cost)? rival2 : rival1;
         }
 
@@ -105,7 +115,7 @@ void selection(){
 
         } while (rival1 == p1[i] || rival2 == p1[i]);
 
-        if (rand() % 100 < 75){ // Similar to above
+        if (rand() % 100 < 90){ // Similar to above
             p2[i] = (rps[rival1].cost < rps[rival2].cost)? rival1 : rival2;
         } else {
             p2[i] = (rps[rival1].cost < rps[rival2].cost)? rival2 : rival1;
@@ -184,7 +194,6 @@ int main(int argc, char **argv){
     vslNewStream(&STREAM, VSL_BRNG_MT19937, 1);
 
     int i, j;
-    double max_cost, min_cost, total_cost;
 
     fprintf(stderr, "Initializing retinas\n");
     // Initialize individual space
@@ -199,7 +208,6 @@ int main(int argc, char **argv){
 
     // Open a log
     FILE *log = fopen("results/LOG", "w");
-    fprintf(log, "# MIN MAX AVG\n");
 
     fprintf(stderr, "Simulation in progress\n");
     for (i = 0; i < MAX_ITERATIONS; i++){
@@ -211,15 +219,8 @@ int main(int argc, char **argv){
         qsort(rps, NUM_INDIVIDUALS, sizeof(RetinaParam), comparator);
 
         // Output stats
-        total_cost = 0;
-        max_cost = -1;
-        min_cost = 999999;
-        for (j = 0; j < NUM_INDIVIDUALS; j++){
-            total_cost += rps[j].cost;
-            if (rps[j].cost > max_cost) max_cost = rps[j].cost;
-            if (rps[j].cost < min_cost) min_cost = rps[j].cost;
-        }
-        fprintf(log, "%d %f %f %f\n", i, min_cost, max_cost, total_cost / NUM_INDIVIDUALS);
+        for (j = 0; j < NUM_INDIVIDUALS; j++) fprintf(log, "%f ", rps[j].cost);
+        fprintf(log, "\n");
 
         selection();
         crossover();

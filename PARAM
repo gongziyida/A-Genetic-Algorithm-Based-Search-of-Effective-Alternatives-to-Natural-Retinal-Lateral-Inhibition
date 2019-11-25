@@ -1,4 +1,4 @@
-Max Iterations = 50
+Max Iterations = 30
 Num Individuals = 100
 Num Elites = 25
 Train Size = 10

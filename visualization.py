@@ -88,12 +88,13 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
     import networkx as nx
 
-    log = np.loadtxt('results/LOG', dtype=np.float64, delimiter=' ', skiprows=1)
+    log = np.loadtxt('results/LOG', dtype=np.float64)
     fig, ax = plt.subplots(1)
     fig.set_size_inches(8, 8)
-    for i in range(1, 4):
-        ax.plot(log[:, 0], log[:, i])
-    ax.legend(['min', 'max', 'avg'])
+    generations = np.arange(log.shape[0])
+    # for i in range(log.shape[0]):
+        # ax.scatter(generations, log[:, i], s=1, c='b')
+    ax.boxplot(log.T, sym='+')
     ax.set_xlabel('Generation')
     ax.set_ylabel('Cost')
     fig.savefig('results/performance.png', bbox_inches='tight')
