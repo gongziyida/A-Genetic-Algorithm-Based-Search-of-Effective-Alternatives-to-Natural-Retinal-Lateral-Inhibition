@@ -1,5 +1,5 @@
-Max Iterations = 30
-Num Individuals = 100
+Max Iterations = 20
+Num Individuals = 500
 Num Elites = 25
 Train Size = 10
 Test Size = 10

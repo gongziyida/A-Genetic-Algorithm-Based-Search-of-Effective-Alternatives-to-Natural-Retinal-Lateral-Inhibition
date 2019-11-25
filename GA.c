@@ -71,7 +71,7 @@ void test(){
             rps[i].cost = INT_MAX;
         else{
             err /= TEST_SIZE;
-            rps[i].cost = err + rps[i].total_n_cells / (MAX_TYPES * MAX_CELLS);
+            rps[i].cost = err + rps[i].avg_intvl + rps[i].n_layers;
             if (rps[i].cost > max_cost) max_cost = rps[i].cost;
         }
     }

@@ -31,13 +31,15 @@ void mk_connection(RetinaParam *rp){
     double abs_maxij, abs_maxji; // Absolute max
     double res; // Auxiliary var to store the result
 
-    rp->total_n_cells = 0;
-
+    rp->avg_intvl = 0;
+    rp->n_layers = 0;
     // Calculate the intervals first
     for (i = 0; i < n; i++){
         rp->intvl[i] = (double) WIDTH / (rp->n_cells[i] + 1.0);
-        if (i > 0 && i < n - 1) rp->total_n_cells += rp->n_cells[i];
+        if (i > 0 && i < n - 1) rp->avg_intvl += rp->intvl[i];
+        if (rp->n_cells[i] > 0) rp->n_layers++;
     }
+    rp->avg_intvl /= n - 1;
 
 
     // Make the weight from j to i

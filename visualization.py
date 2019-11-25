@@ -46,6 +46,9 @@ def save_img(fname):
     fig, ax = plt.subplots(len(connections))
     fig.set_size_inches(5, 5 * len(connections))
 
+    if len(connections) == 1:
+        ax = [ax]
+
     for i, (s, t) in enumerate(connections.keys()):
         g = nx.MultiDiGraph()
 
@@ -92,9 +95,7 @@ if __name__ == '__main__':
     fig, ax = plt.subplots(1)
     fig.set_size_inches(8, 8)
     generations = np.arange(log.shape[0])
-    # for i in range(log.shape[0]):
-        # ax.scatter(generations, log[:, i], s=1, c='b')
-    ax.boxplot(log.T, sym='+')
+    ax.boxplot(log.T, sym='+', showmeans=True)
     ax.set_xlabel('Generation')
     ax.set_ylabel('Cost')
     fig.savefig('results/performance.png', bbox_inches='tight')

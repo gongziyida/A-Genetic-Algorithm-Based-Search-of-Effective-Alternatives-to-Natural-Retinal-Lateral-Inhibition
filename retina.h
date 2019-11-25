@@ -34,7 +34,8 @@ typedef struct RetinaParam{
           ...
         n-1 | n^2-n |n^2-n+1| ... | n^2-1
      */
-    int total_n_cells;
+    double avg_intvl;
+    int n_layers;
     double cost;   // Fitness cost, the larger the worse
 } RetinaParam;
 
