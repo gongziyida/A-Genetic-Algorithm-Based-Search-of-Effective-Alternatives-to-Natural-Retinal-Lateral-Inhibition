@@ -36,7 +36,7 @@ void mk_connection(RetinaParam *rp){
     // Calculate the intervals first
     for (i = 0; i < n; i++){
         rp->intvl[i] = (double) WIDTH / (rp->n_cells[i] + 1.0);
-        rp->total_n_cells += rp->n_cells[i];
+        if (i > 0 && i < n - 1) rp->total_n_cells += rp->n_cells[i];
     }
 
 
@@ -89,8 +89,8 @@ void mk_connection(RetinaParam *rp){
             }
 
             // Normalize between -1 and 1
-            if (abs_maxij > 0) cblas_daxpy(ni*nj, 1/abs_maxij, rp->c[kij].w, 1, rp->c[kij].w, 1);
-            if (abs_maxji > 0) cblas_daxpy(ni*nj, 1/abs_maxji, rp->c[kji].w, 1, rp->c[kji].w, 1);
+            if (abs_maxij > 0) cblas_dscal(ni * nj, 1/abs_maxij, rp->c[kij].w, 1);
+            if (abs_maxji > 0) cblas_dscal(ni * nj, 1/abs_maxji, rp->c[kji].w, 1);
         }
     }
 }
@@ -119,6 +119,7 @@ void init_retina(RetinaParam *rp){
     rp->n_cells = mkl_malloc(MAX_TYPES * sizeof(int), 64);
     viRngUniform(VSL_RNG_METHOD_UNIFORM_STD, STREAM, n, rp->n_cells, 1, MAX_CELLS);
     rp->n_cells[0] = MAX_CELLS;
+    rp->n_cells[n - 1] = MAX_CELLS / 5;
 
     rp->new_states = mkl_malloc(MAX_TYPES * MAX_CELLS * sizeof(double), 64);
     rp->old_states = mkl_malloc(MAX_TYPES * MAX_CELLS * sizeof(double), 64);
@@ -127,17 +128,8 @@ void init_retina(RetinaParam *rp){
 
     rp->c = malloc(MAX_TYPES * MAX_TYPES * sizeof(Connections));
 
-    int i, j, kij, kji;
     int size = MAX_CELLS * MAX_CELLS * sizeof(double);
-    for (i = 0; i < MAX_TYPES - 1; i++) {
-        for (j = i + 1; j < MAX_TYPES; j++) {
-            kij = i * n + j;
-            kji = j * n + i;
-
-            rp->c[kij].w = mkl_malloc(size, 64);
-            rp->c[kji].w = mkl_malloc(size, 64);
-        }
-    }
+    for (int i = 0; i < MAX_TYPES * MAX_TYPES; i++) rp->c[i].w = mkl_malloc(size, 64);
 
     mk_connection(rp);
 }
@@ -158,39 +150,52 @@ void rm_retina(RetinaParam *rp){
 void process(RetinaParam *rp, double *input) {
     int n = rp->n_types; // For convenience
 
-    // Set the states of receptors to the input
-    cblas_dcopy(MAX_CELLS, input, 1, rp->old_states, 1);
+    // Set the states to 0
+    memset(rp->old_states, 0, MAX_TYPES * MAX_CELLS * sizeof(double));
+    memset(rp->new_states, 0, MAX_TYPES * MAX_CELLS * sizeof(double));
 
-    // Set the rest of states to 0
-    memset(&rp->old_states[MAX_CELLS], 0, (n - 1) * MAX_CELLS * sizeof(double));
+    int t, i, j, ni, nj;
+    double d[MAX_CELLS]; // For storing derivatives
+    double res[MAX_CELLS]; // For storing matrix-vector multiplication results
 
-    int a, b;
-    double *buff;
+    for (t = 0; t < SIM_TIME; t++){
+        for (i = 0; i < n; i++) {
+            ni = rp->n_cells[i];
 
-    for (int t = 0; t < SIM_TIME; t++) {
-        for (int i = 0; i < n - 1; i++) {
-            for (int j = i + 1; j < n; j++) {
-                a = rp->n_cells[i];
-                b = rp->n_cells[j];
+            if (ni == 0) continue;
 
-                if (a == 0 || b == 0) continue;
+            // V_i' = -V_i
+            cblas_dcopy(ni, &rp->old_states[i * MAX_CELLS], 1, d, 1);
+            cblas_dscal(ni, -1, d, 1);
 
-                // s_ki(t) += C_ij * s_kj(t-1)
-                cblas_dgemv(CblasRowMajor, CblasNoTrans, a, b, 1, rp->c[j * n + i].w, b,
-                            &rp->old_states[j * MAX_CELLS], 1, 1, &rp->new_states[i * MAX_CELLS],
-                            1);
+            if (i == 0) // V_i' = -V_i + I_ext
+                cblas_daxpy(ni, 1, input, 1, d, 1);
 
-                // s_kj(t) += C_ji * s_ki(t-1)
-                cblas_dgemv(CblasRowMajor, CblasNoTrans, b, a, 1, rp->c[i * n + j].w, a,
-                            &rp->old_states[i * MAX_CELLS], 1, 1, &rp->new_states[j * MAX_CELLS],
-                            1);
+            for (j = 0; j < n; j++){
+                if (j == i) continue;
+
+                nj = rp->n_cells[j];
+
+                if (nj == 0) continue;
+
+                // I_j = W_ji * V_j
+                cblas_dgemv(CblasRowMajor, CblasNoTrans, ni, nj, 1, rp->c[j * n + i].w, nj,
+                            &rp->old_states[j * MAX_CELLS], 1, 0, res, 1);
+
+                cblas_daxpy(ni, 1, res, 1, d, 1); // V_i' = -V_i + sum_j(I_j) [+ I_ext]
             }
+
+            // V_i = V_i + dt / tau * V_i'
+            cblas_daxpy(ni, 1/TAU, d, 1, &rp->new_states[i * MAX_CELLS], 1);
+
+            for (j = 0; j < ni; j++) { // ReLU
+                if (rp->new_states[i * MAX_CELLS + j] < 0)
+                    rp->new_states[i * MAX_CELLS + j] = 0;
+            }
+
         }
 
-        if (t != SIM_TIME - 1) { // New becomes old
-            buff = rp->old_states;
-            rp->old_states = rp->new_states;
-            rp->new_states = buff; // Need to switch reference in case of memory leaky
-        } // Otherwise, we just keep the freshest values in new_states
+        if (t != SIM_TIME - 1) // New becomes old
+            cblas_dcopy(MAX_TYPES * MAX_CELLS, rp->new_states, 1, rp->old_states, 1);
     }
 }

@@ -8,16 +8,16 @@ with open('PARAM', 'r') as f:
             TRAIN_SIZE = int(line.split(' = ')[1])
         if i == 4:
             TEST_SIZE = int(line.split(' = ')[1])
-        if i == 8:
-            MAX_CELLS = int(line.split(' = ')[1])
+        if i == 9:
+            MAX_CELLS = int(line.split(' = ')[1]) 
 
 ref_prey = np.zeros(MAX_CELLS, dtype=np.float64)
-ref_prey[MAX_CELLS//2-1 : MAX_CELLS//2+2] = 1
+ref_prey[MAX_CELLS//2-1 : MAX_CELLS//2+2] = 10
 ref_pred = np.zeros(MAX_CELLS, dtype=np.float64)
-ref_pred[MAX_CELLS//4 : 3*MAX_CELLS//4+1] = 1
+ref_pred[MAX_CELLS//4 : 3*MAX_CELLS//4+1] = 10
 
 
-def perturb(ref, num, std=0.3):
+def perturb(ref, num, std=3):
     d = np.abs(np.random.normal(ref, std, size=(num, MAX_CELLS)))
     d_min = d.min(axis=1)
     d_max = d.max(axis=1)

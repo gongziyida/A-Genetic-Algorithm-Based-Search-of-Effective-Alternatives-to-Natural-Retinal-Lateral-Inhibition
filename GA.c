@@ -19,41 +19,55 @@ RetinaParam *rps;   // Individual space
 VSLStreamStatePtr STREAM; // Random generator stream
 
 void test(){
-    double w[MAX_CELLS+1]; // Perceptron connection matrix
+    double w[MAX_CELLS / 5 + 1]; // Perceptron connection matrix
     double o, coef, err;
     int i, j;
 
     for (i = 0; i < NUM_INDIVIDUALS; i++){
         // Train
-        vdRngUniform(VSL_RNG_METHOD_UNIFORM_STD, STREAM, MAX_CELLS, w, -1, 1); // Randomize w
+        vdRngUniform(VSL_RNG_METHOD_UNIFORM_STD, STREAM, MAX_CELLS / 5, w, -1, 1); // Randomize w
         for (j = 0; j < TRAIN_SIZE; j++){ // For each training data
             process(&rps[i], &TRAIN[j * MAX_CELLS]);
 
-            cblas_ddot(MAX_CELLS, w, 1, rps[i].new_states, 1); // net = w^T x
-            o = 1 / (1 + exp(o + w[MAX_CELLS])); // out = sigmoid(net + w_b * bias)
+            // net = w^T x
+            o = cblas_ddot(MAX_CELLS / 5, w, 1,
+                    &rps[i].new_states[MAX_CELLS * (rps[i].n_types - 1)], 1);
+
+            o = 1 / (1 + exp(o + w[MAX_CELLS / 5])); // out = sigmoid(net + w_b * bias)
+
+            if (isinf(o)) break;
 
             if (LABELS_TR[j] == 1) // w -= - eta * 1 / o * o * (1 - o) * input
                 coef = - ETA * (1 - o);
             else // w -= - eta * 1 / (1 - o) * o * (1 - o) * input
                 coef = - ETA * o;
 
-            cblas_daxpy(MAX_CELLS, coef, &TRAIN[j * MAX_CELLS], 1, w, 1);
-            w[MAX_CELLS] -= coef; // Note that the bias is 1 so we do not have to multiply
+            cblas_daxpy(MAX_CELLS / 5, coef, &TRAIN[j * MAX_CELLS / 5], 1, w, 1);
+            w[MAX_CELLS / 5] -= coef; // Note that the bias is 1 so we do not have to multiply
         }
         // Test
         err = 0;
         for (j = 0; j < TEST_SIZE; j++){ // For each training data
             process(&rps[i], &TEST[j*MAX_CELLS]);
 
-            cblas_ddot(MAX_CELLS, w, 1, rps[i].new_states, 1); // net = w^T x
-            o = 1 / (1 + exp(o + w[MAX_CELLS])); // out = sigmoid(net + w_b * bias)
+            // net = w^T x
+            o = cblas_ddot(MAX_CELLS / 5, w, 1, &rps[i].new_states[MAX_CELLS * (rps[i].n_types - 1)], 1);
+            o = 1 / (1 + exp(o + w[MAX_CELLS / 5])); // out = sigmoid(net + w_b * bias)
 
-            if (LABELS_TR[j] == 1)  err += -log(o);
-            else                    err += -log(1 - o);
+            if (isinf(o)) break;
+
+            if (LABELS_TR[j] == 1)
+                err += -log(o);
+            else
+                err += -log(1 - o);
         }
 
-        err /= TEST_SIZE;
-        rps[i].cost = err * rps[i].total_n_cells;
+        if (isinf(err))
+            rps[i].cost = 500;
+        else{
+            err /= TEST_SIZE;
+            rps[i].cost = err + rps[i].total_n_cells / (MAX_TYPES * MAX_CELLS);
+        }
     }
 }
 
@@ -102,18 +116,18 @@ void selection(){
 void crossover(){
     RetinaParam *children = &rps[NUM_ELITES]; // Index start from NUM_ELITES
 
-    int p;
+    int p, n;
 
     int k;
     for (int i = 0; i < NUM_INDIVIDUALS - NUM_ELITES; i++){
         if (rand() % 100 < 50)  p = p1[i];
         else                    p = p2[i];
 
-        //n = rps[p].n_types;
+        n = rps[p].n_types;
         children[i].decay = rps[p].decay;
-        //children[i].n_types = n;
+        children[i].n_types = n;
 
-        for (k = 0; k < MAX_TYPES; k++){
+        for (k = 0; k < n; k++){
             if (rand() % 100 < 50)  p = p1[i];
             else                    p = p2[i];
 
@@ -141,7 +155,7 @@ void mutation(){
         rps[i].dendrites[rand() % n] ^= (int)(rand() - RAND_MAX);
 
         // TODO: variable receptors (requires the input to be a function rather than discrete)
-        for (j = 1; j < n; j++){ // Skip receptors
+        for (j = 1; j < n - 1; j++){ // Skip receptors
             // Mutate polarities, in very small amount per time
             vdRngGaussian(VSL_RNG_METHOD_GAUSSIAN_BOXMULLER, STREAM,
                           1, &rps[i].polarities[j], rps[i].polarities[j], 0.01);
