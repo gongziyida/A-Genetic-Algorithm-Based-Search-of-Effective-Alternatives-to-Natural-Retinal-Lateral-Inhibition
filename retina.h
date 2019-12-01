@@ -23,7 +23,6 @@ typedef struct RetinaParam{
     double *new_states; // The new states of nodes
     double *old_states; // The old states of nodes
     double *intvl;      // Intervals between interneurons of the same types
-    int n_connections;  // Number of connection matrices
     Connections *c;     // Array of connection matrices
     /* Indexing table:
         s\t |   0   |   1   | ... | n-1

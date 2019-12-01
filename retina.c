@@ -35,12 +35,12 @@ void mk_connection(RetinaParam *rp){
     rp->n_layers = 0;
     // Calculate the intervals first
     for (i = 0; i < n; i++){
-        rp->intvl[i] = (double) WIDTH / (rp->n_cells[i] + 1.0);
-        if (i > 0 && i < n - 1) rp->avg_intvl += rp->intvl[i];
         if (rp->n_cells[i] > 0) rp->n_layers++;
+        rp->intvl[i] = (double) WIDTH / (rp->n_cells[i] + 1.0);
+        rp->avg_intvl += rp->intvl[i];
     }
-    rp->avg_intvl /= n - 1;
 
+    rp->avg_intvl /= n;
 
     // Make the weight from j to i
     for (i = 0; i < n - 1; i++){
@@ -107,7 +107,6 @@ void init_retina(RetinaParam *rp){
     viRngUniform(VSL_RNG_METHOD_UNIFORM_STD, STREAM, 1, &n, 2, MAX_TYPES + 1);
 
     rp->n_types = n;
-    rp->n_connections = n * n;
 
     rp->axons = mkl_malloc(MAX_TYPES * sizeof(double), 64);
     viRngUniform(VSL_RNG_METHOD_UNIFORM_STD, STREAM, n, rp->axons, INT_MIN, INT_MAX);
@@ -145,7 +144,7 @@ void rm_retina(RetinaParam *rp){
     mkl_free(rp->n_cells);
     mkl_free(rp->intvl);
 
-    for (int i = 0; i < rp->n_connections; i++) mkl_free(rp->c[i].w);
+    for (int i = 0; i < MAX_TYPES * MAX_TYPES; i++) mkl_free(rp->c[i].w);
     free(rp->c);
 }
 

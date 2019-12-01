@@ -18,13 +18,14 @@ int *p1, *p2;       // Parent index spaces
 RetinaParam *rps;   // Individual space
 VSLStreamStatePtr STREAM; // Random generator stream
 
-void test(){
+/* Test on perturbed stimuli using perceptron */
+void test_p_p(){
     double w[MAX_CELLS / 5 + 1]; // Perceptron connection matrix
     double o, coef, err, max_cost;
     int i, j;
     int should_die;
 
-    for (i = 0; i < NUM_INDIVIDUALS; i++){
+    for (i = 0, max_cost = INT_MIN; i < NUM_INDIVIDUALS; i++){
         should_die = 0;
 
         // Train
@@ -52,8 +53,7 @@ void test(){
             w[MAX_CELLS / 5] -= coef; // Note that the bias is 1 so we do not have to multiply
         }
         // Test
-        err = 0;
-        for (j = 0; j < TEST_SIZE; j++){ // For each training data
+        for (j = 0, err = 0; j < TEST_SIZE; j++){ // For each training data
             if (should_die) break;
             process(&rps[i], &TEST[j*MAX_CELLS]);
 
@@ -71,7 +71,8 @@ void test(){
             rps[i].cost = INT_MAX;
         else{
             err /= TEST_SIZE;
-            rps[i].cost = err + rps[i].avg_intvl + rps[i].n_layers;
+            // TODO: play with coefficients
+            rps[i].cost = err + 1 / rps[i].avg_intvl + rps[i].n_layers;
             if (rps[i].cost > max_cost) max_cost = rps[i].cost;
         }
     }
@@ -80,6 +81,10 @@ void test(){
         if (rps[i].cost == INT_MAX) rps[i].cost = max_cost + 1;
     }
 }
+
+// TODO: Try the following:
+void test_bam_p(); // perturbed stimuli
+void test_fft_p(); // blurred stimuli
 
 int comparator(const void *rp1, const void *rp2){
     /*
@@ -126,10 +131,9 @@ void selection(){
 void crossover(){
     RetinaParam *children = &rps[NUM_ELITES]; // Index start from NUM_ELITES
 
-    int p, n;
-
-    int k;
-    for (int i = 0; i < NUM_INDIVIDUALS - NUM_ELITES; i++){
+    int p, n, q;
+    int i, k;
+    for (i = 0; i < NUM_INDIVIDUALS - NUM_ELITES; i++){
         if (rand() % 100 < 50)  p = p1[i];
         else                    p = p2[i];
 
@@ -141,18 +145,25 @@ void crossover(){
             if (rand() % 100 < 50)  p = p1[i];
             else                    p = p2[i];
 
-            children[i].axons[k] = rps[p].axons[k];
-            children[i].dendrites[k] = rps[p].dendrites[k];
-            children[i].polarities[k] = rps[p].polarities[k];
-            children[i].n_cells[k] = rps[p].n_cells[k];
+            if (k == 0) // Receptor cells
+                q = 0;
+            else if (k == n - 1) // Ganglion cells
+                q = rps[p].n_types - 1;
+            else // Interneurons; select randomly from one of the parents
+            q = rand() % rps[p].n_types;
+
+            children[i].axons[k] = rps[p].axons[q];
+            children[i].dendrites[k] = rps[p].dendrites[q];
+            children[i].polarities[k] = rps[p].polarities[q];
+            children[i].n_cells[k] = rps[p].n_cells[q];
         }
     }
 }
 
 
 void mutation(){
-    int n, j, chance;
-    for (int i = NUM_ELITES; i < NUM_INDIVIDUALS; i++){
+    int n, i, j, chance, k;
+    for (i = NUM_ELITES; i < NUM_INDIVIDUALS; i++){
         n = rps[i].n_types;
 
         vdRngGaussian(VSL_RNG_METHOD_GAUSSIAN_BOXMULLER, STREAM,
@@ -160,25 +171,29 @@ void mutation(){
         if (rps[i].decay < 0) rps[i].decay = 0; // Cannot be smaller than 0
         if (rps[i].decay > WIDTH) rps[i].decay = WIDTH; // Cannot be larger than WIDTH
 
-        // Randomly change one of the axon descriptors (same for dendrites)
-        rps[i].axons[rand() % n] ^= (int)(rand() - RAND_MAX);
-        rps[i].dendrites[rand() % n] ^= (int)(rand() - RAND_MAX);
+        // Randomly flip two bits for each axon and dendrite descriptor
+        for (j = 0; j < n; j++){
+            for (k = 0; k < 2; k++){
+                rps[i].axons[j] ^= 1 << (rand() % 32);
+                rps[i].dendrites[j] ^= 1 << (rand() % 32);
+            }
+        }
 
         // TODO: variable receptors (requires the input to be a function rather than discrete)
         for (j = 1; j < n - 1; j++){ // Skip receptors
             // Mutate polarities, in very small amount per time
             vdRngGaussian(VSL_RNG_METHOD_GAUSSIAN_BOXMULLER, STREAM,
-                          1, &rps[i].polarities[j], rps[i].polarities[j], 0.01);
+                          1, &rps[i].polarities[j], rps[i].polarities[j], 0.005);
             // Clip
             if (rps[i].polarities[j] > 1) rps[i].polarities[j] = 1;
             else if (rps[i].polarities[j] < -1) rps[i].polarities[j] = -1;
 
             chance = rand() % 100;
-            // 0.5 probability the number of cells will decrease/increase by 1
-            if (chance < 25) {
+            // 0.05 probability the number of cells will decrease/increase by 1
+            if (chance < 5) {
                 rps[i].n_cells[j] += 1;
                 if (rps[i].n_cells[j] > MAX_CELLS) rps[i].n_cells[j]--; // Cannot go above the max
-            } else if (chance < 50){
+            } else if (chance < 10){
                 rps[i].n_cells[j] -= 1;
                 if (rps[i].n_cells[j] < 0) rps[i].n_cells[j] = 0; // Cannot go below the min (0)
             }
@@ -188,6 +203,8 @@ void mutation(){
 
 
 int main(int argc, char **argv){
+    void (*test)() = test_p_p; // For convenience
+
     fprintf(stderr, "Loading data\n");
     load();
 

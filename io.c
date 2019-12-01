@@ -88,29 +88,31 @@ void save(RetinaParam *rps){
     char fname[20];
     FILE *f;
 
-    for (int i = 0; i < NUM_ELITES; i++){
-        snprintf(fname, 20, "results/%d.txt", i);
+    int i, k, n;
+    for (k = 0; k < NUM_ELITES; k++){
+        snprintf(fname, 20, "results/%d.txt", k);
+
+        n = rps[k].n_types;
 
         f = fopen(fname, "w");
-        fprintf(f, "%f\n", rps[i].cost);
-        fprintf(f, "%d\n", rps[i].n_types);
+        fprintf(f, "%f\n", rps[k].cost);
+        fprintf(f, "%d\n", n);
 
-        for (int j = 0; j < rps[i].n_connections; j++){
-            if (rps[i].c[j].w == NULL) continue;
+        for (i = 0; i < n * n; i++){
+            nfrom = rps[k].n_cells[rps[k].c[i].from];
+            nto = rps[k].n_cells[rps[k].c[i].to];
+            if (rps[k].c[i].from == rps[k].c[i].to || (nfrom == 0 || nto == 0))
+                continue;
 
-            nfrom = rps[i].n_cells[rps[i].c[j].from];
-            nto = rps[i].n_cells[rps[i].c[j].to];
-
-            if (nfrom == 0 || nto == 0) continue;
-
-            fprintf(f, "# %d %d %d %d\n", rps[i].c[j].from, rps[i].c[j].to, nto, nfrom);
+            fprintf(f, "# %d %d %d %d\n", rps[k].c[i].from, rps[k].c[i].to, nto, nfrom);
 
             for (int p = 0; p < nto; p++) {
                 for (int q = 0; q < nfrom; q++) {
-                    fprintf(f, "%.3f ", rps[i].c[j].w[p*nfrom+q]);
+                    fprintf(f, "%.3f ", rps[k].c[i].w[p * nfrom + q]);
                 }
                 fprintf(f, "\n");
             }
+
         }
         fclose(f);
     }
