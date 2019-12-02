@@ -9,7 +9,7 @@
 
 int MAX_ITERATIONS, NUM_INDIVIDUALS, NUM_ELITES, TRAIN_SIZE, TEST_SIZE,
     SIM_TIME, MAX_TYPES, MAX_CELLS, WIDTH;
-double TAU, ETA;
+double TAU, DT, ETA;
 double *TRAIN;
 double *TEST;
 int *LABELS_TR;
@@ -27,6 +27,7 @@ char *PARAM_FORMAT =
         "Test Size = %d\n"
         "Sim Time = %d\n"
         "Tau = %lf\n"
+        "dt = %lf\n"
         "Eta = %lf\n"
         "Max Types = %d\n"
         "Max Cells = %d\n"
@@ -36,7 +37,7 @@ void load(){
     FILE *fparam = fopen(PARAM, "r");
     // Read parameters
     fscanf(fparam, PARAM_FORMAT, &MAX_ITERATIONS, &NUM_INDIVIDUALS, &NUM_ELITES,
-            &TRAIN_SIZE, &TEST_SIZE, &SIM_TIME, &TAU, &ETA, &MAX_TYPES, &MAX_CELLS, &WIDTH);
+            &TRAIN_SIZE, &TEST_SIZE, &SIM_TIME, &TAU, &DT, &ETA, &MAX_TYPES, &MAX_CELLS, &WIDTH);
 
     fclose(fparam);
 

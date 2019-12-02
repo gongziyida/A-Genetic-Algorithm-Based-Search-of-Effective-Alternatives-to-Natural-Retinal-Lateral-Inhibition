@@ -155,11 +155,18 @@ void process(RetinaParam *rp, double *input) {
     memset(rp->old_states, 0, MAX_TYPES * MAX_CELLS * sizeof(double));
     memset(rp->new_states, 0, MAX_TYPES * MAX_CELLS * sizeof(double));
 
-    int t, i, j, ni, nj;
+    int i, j, ni, nj;
     double d[MAX_CELLS]; // For storing derivatives
     double res[MAX_CELLS]; // For storing matrix-vector multiplication results
 
-    for (t = 0; t < SIM_TIME; t++){
+    /* For testing purpose
+    // Open a log
+    FILE *log = fopen("results/TRACE", "w");
+    // Output stats
+    fprintf(log, "%d\n", n);
+    */
+
+    for (double t = 0; t < SIM_TIME; t+=DT){
         for (i = 0; i < n; i++) {
             ni = rp->n_cells[i];
 
@@ -186,17 +193,42 @@ void process(RetinaParam *rp, double *input) {
                 cblas_daxpy(ni, 1, res, 1, d, 1); // V_i' = -V_i + sum_j(I_j) [+ I_ext]
             }
 
-            // V_i = V_i + dt / tau * V_i'
-            cblas_daxpy(ni, 1/TAU, d, 1, &rp->new_states[i * MAX_CELLS], 1);
-
-            for (j = 0; j < ni; j++) { // ReLU
-                if (rp->new_states[i * MAX_CELLS + j] < 0)
-                    rp->new_states[i * MAX_CELLS + j] = 0;
+            /* For testing purpose
+            fprintf(stderr, "\n%d: %d\n", i, rp->n_cells[i]);
+            for (j = 0; j < MAX_CELLS; j++) {
+                fprintf(stderr, "%f ", d[j]);
             }
+             */
+
+            // V_i = V_i + dt / tau * V_i'
+            cblas_daxpy(ni, DT/TAU, d, 1, &rp->new_states[i * MAX_CELLS], 1);
+
+            for (j = 0; j < ni; j++)  // Sigmoid
+                rp->new_states[i * MAX_CELLS + j] = 1 / (1 + exp(-rp->new_states[i * MAX_CELLS + j]));
 
         }
 
+        /* For testing purpose
+        for (int k = 0; k < n; k++){
+            for(int ki = 0; ki < rp->n_cells[k]; ki++)
+                fprintf(log, "%f ", rp->new_states[k * MAX_CELLS + ki]);
+            fprintf(log, "\n");
+        }
+        */
+
         if (t != SIM_TIME - 1) // New becomes old
             cblas_dcopy(MAX_TYPES * MAX_CELLS, rp->new_states, 1, rp->old_states, 1);
+        else{
+            double max = -1;
+            double *state = &rp->new_states[MAX_CELLS * (rp->n_types - 1)];
+            for (j = 0; j < MAX_CELLS / 5; j++){
+                if (state[j] < 0) fprintf(stderr, "!");
+                if (state[j] > max) max = state[j];
+            }
+            cblas_dscal(MAX_CELLS / 5, 1/max, state, 1);
+        }
     }
+     /* For testing purpose
+    fclose(log);
+    */
 }

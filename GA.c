@@ -22,14 +22,18 @@ VSLStreamStatePtr STREAM; // Random generator stream
 void test_p_p(){
     double w[MAX_CELLS / 5 + 1]; // Perceptron connection matrix
     double o, coef, err, max_cost;
-    int i, j;
+    double max_w, min_w;
+    int i, j, k;
     int should_die;
 
-    for (i = 0, max_cost = INT_MIN; i < NUM_INDIVIDUALS; i++){
+    for (i = 0; i < NUM_INDIVIDUALS; i++){
+        max_cost = INT_MIN;
+        err = 0;
         should_die = 0;
 
+        // TODO: Solve the over train problem
         // Train
-        vdRngUniform(VSL_RNG_METHOD_UNIFORM_STD, STREAM, MAX_CELLS / 5, w, -1, 1); // Randomize w
+        vdRngUniform(VSL_RNG_METHOD_UNIFORM_STD, STREAM, MAX_CELLS / 5 + 1, w, -1, 1); // Randomize
         for (j = 0; j < TRAIN_SIZE; j++){ // For each training data
             process(&rps[i], &TRAIN[j * MAX_CELLS]);
 
@@ -37,42 +41,73 @@ void test_p_p(){
             o = cblas_ddot(MAX_CELLS / 5, w, 1,
                     &rps[i].new_states[MAX_CELLS * (rps[i].n_types - 1)], 1);
 
+            /* For testing purpose
+            for (int l = 0; l < rps[i].n_types; l++){
+                fprintf(stderr, "\n%d\n", l);
+                for (int k = 0; k < rps[i].n_cells[l]; k++){
+                    if (isnan(rps[i].new_states[l * MAX_CELLS + k]))
+                        fprintf(stderr, "%f ", rps[i].new_states[l * MAX_CELLS + k]);
+                }
+            }
+             */
+
             if (isinf(o)){
                 should_die = 1;
                 break;
             }
 
-            o = 1 / (1 + exp(o + w[MAX_CELLS / 5])); // out = sigmoid(net + w_b * bias)
+            // Because it is possible for a ill-behaved retina to give zero output which easily
+            // leads the perceptron to have near zero output, we cannot use sigmoid directly here
+            o = tanh(o + w[MAX_CELLS / 5]); // out = tanh(net + w_b * bias)
+            o = (o + 1) / 2; // Map (-1, 1) to (0, 1), so as to avoid division by zero
 
-            if (LABELS_TR[j] == 1) // w -= - eta * 1 / o * o * (1 - o) * input
-                coef = - ETA * (1 - o);
-            else // w -= - eta * 1 / (1 - o) * o * (1 - o) * input
-                coef = - ETA * o;
+            if (LABELS_TR[j] == 1) { // w -= - eta * (1 - o^2) / o * input
+                if (o < 0.001) o = 0.001; // Avoid near 0
+                coef = -ETA * (1 - o * o) / o;
+            } else { // w -= - eta * (1 - o^2) / (1 - o) * input
+                if (o > 0.999) o = 0.999; // Avoid near 1
+                coef = -ETA * (1 - o * o) / (1 - o);
+            }
 
-            cblas_daxpy(MAX_CELLS / 5, coef, &TRAIN[j * MAX_CELLS / 5], 1, w, 1);
+            cblas_daxpy(MAX_CELLS / 5, coef,
+                    &rps[i].new_states[MAX_CELLS * (rps[i].n_types - 1)], 1, w, 1);
             w[MAX_CELLS / 5] -= coef; // Note that the bias is 1 so we do not have to multiply
+
+            // Find min/max
+            for (k = 0, min_w = 1e+308, max_w = -1e+308; k < MAX_CELLS / 5 + 1; k++){
+                if (w[k] < min_w) min_w = w[k];
+                if (w[k] > max_w) max_w = w[k];
+            }
+            // Normalize
+            for (k = 0; k < MAX_CELLS / 5 + 1; k++) w[k] = (w[k] - min_w) / (max_w - min_w);
         }
+
         // Test
-        for (j = 0, err = 0; j < TEST_SIZE; j++){ // For each training data
+        for (j = 0; j < TEST_SIZE; j++){ // For each training data
             if (should_die) break;
             process(&rps[i], &TEST[j*MAX_CELLS]);
 
             // net = w^T x
-            o = cblas_ddot(MAX_CELLS / 5, w, 1, &rps[i].new_states[MAX_CELLS * (rps[i].n_types - 1)], 1);
-            o = 1 / (1 + exp(o + w[MAX_CELLS / 5])); // out = sigmoid(net + w_b * bias)
+            o = cblas_ddot(MAX_CELLS / 5, w, 1,
+                    &rps[i].new_states[MAX_CELLS * (rps[i].n_types - 1)], 1);
+//            fprintf(stderr, "%f\n", o);
+            o = tanh(o + w[MAX_CELLS / 5]); // out = tanh(net + w_b * bias)
+//            fprintf(stderr, "> %f %f\n", o, w[MAX_CELLS / 5]);
+            o = (o + 1) / 2; // Map (-1, 1) to (0, 1), so as to avoid division by zero
 
             if (LABELS_TR[j] == 1)
-                err += -log(o);
+                err += -log(o == 0 ? 0.0001 : o);
             else
-                err += -log(1 - o);
+                err += -log(o == 1 ? 0.0001 : (1 - o));
         }
 
-        if (should_die || isinf(err))
+        if (should_die || isinf(err)) {
             rps[i].cost = INT_MAX;
-        else{
+            should_die = 0;
+        } else{
             err /= TEST_SIZE;
             // TODO: play with coefficients
-            rps[i].cost = err + 1 / rps[i].avg_intvl + rps[i].n_layers;
+            rps[i].cost = err; //+ 1 / rps[i].avg_intvl + rps[i].n_layers;
             if (rps[i].cost > max_cost) max_cost = rps[i].cost;
         }
     }
@@ -201,6 +236,24 @@ void mutation(){
     }
 }
 
+//int main(int argc, char **argv){ // Testing main
+//    load();
+//
+//    vslNewStream(&STREAM, VSL_BRNG_MT19937, 1);
+//
+//    // Initialize individual space
+//    rps = malloc(sizeof(RetinaParam));
+//    init_retina(rps);
+//    process(rps, TRAIN);
+//
+//    save(rps);
+//
+//	free_data();
+//
+//	free(rps);
+//
+//	return 0;
+//}
 
 int main(int argc, char **argv){
     void (*test)() = test_p_p; // For convenience

@@ -8,7 +8,7 @@ with open('PARAM', 'r') as f:
             TRAIN_SIZE = int(line.split(' = ')[1])
         if i == 4:
             TEST_SIZE = int(line.split(' = ')[1])
-        if i == 9:
+        if i == 10:
             MAX_CELLS = int(line.split(' = ')[1]) 
 
 ref_prey = np.zeros(MAX_CELLS, dtype=np.float64)
