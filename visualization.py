@@ -60,6 +60,9 @@ def save_img(fname):
             for q in range(n):
                 if np.abs(c[p, q]) > 0.01:
                     g.add_edge((s, q), (t, p), color=c[p, q])
+                else:
+                    g.add_node((s, q))
+                    g.add_node((t, p))
 
         # Extract a list of edge colors
         edges = g.edges()
@@ -69,7 +72,7 @@ def save_img(fname):
         nodes = g.nodes()
         fixed_pos = {}
         for n in nodes:
-            fixed_pos.update({n: (n[0], (n[1] - n_cells[n[0]]/2) * 2)})
+            fixed_pos.update({n: (n[0], (n[1] - n_cells[n[0]]/2) * 30//n_cells[n[0]])})
 
         # get the nx positions
         pos = nx.spring_layout(g, pos=fixed_pos, fixed=fixed_pos.keys())

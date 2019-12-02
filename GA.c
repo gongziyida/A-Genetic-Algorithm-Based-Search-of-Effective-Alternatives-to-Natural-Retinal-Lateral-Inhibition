@@ -58,7 +58,7 @@ void test_p_p(){
 
             // Because it is possible for a ill-behaved retina to give zero output which easily
             // leads the perceptron to have near zero output, we cannot use sigmoid directly here
-            o = tanh(o + w[MAX_CELLS / 5]); // out = tanh(net + w_b * bias)
+            o = tanh(o);// + w[MAX_CELLS / 5]); // out = tanh(net + w_b * bias)
             o = (o + 1) / 2; // Map (-1, 1) to (0, 1), so as to avoid division by zero
 
             if (LABELS_TR[j] == 1) { // w -= - eta * (1 - o^2) / o * input
@@ -71,7 +71,7 @@ void test_p_p(){
 
             cblas_daxpy(MAX_CELLS / 5, coef,
                     &rps[i].new_states[MAX_CELLS * (rps[i].n_types - 1)], 1, w, 1);
-            w[MAX_CELLS / 5] -= coef; // Note that the bias is 1 so we do not have to multiply
+//            w[MAX_CELLS / 5] -= coef; // Note that the bias is 1 so we do not have to multiply
 
             // Find min/max
             for (k = 0, min_w = 1e+308, max_w = -1e+308; k < MAX_CELLS / 5 + 1; k++){
@@ -79,7 +79,7 @@ void test_p_p(){
                 if (w[k] > max_w) max_w = w[k];
             }
             // Normalize
-            for (k = 0; k < MAX_CELLS / 5 + 1; k++) w[k] = (w[k] - min_w) / (max_w - min_w);
+            for (k = 0; k < MAX_CELLS / 5 ; k++) w[k] = (w[k] - min_w) / (max_w - min_w);
         }
 
         // Test
@@ -90,9 +90,7 @@ void test_p_p(){
             // net = w^T x
             o = cblas_ddot(MAX_CELLS / 5, w, 1,
                     &rps[i].new_states[MAX_CELLS * (rps[i].n_types - 1)], 1);
-//            fprintf(stderr, "%f\n", o);
-            o = tanh(o + w[MAX_CELLS / 5]); // out = tanh(net + w_b * bias)
-//            fprintf(stderr, "> %f %f\n", o, w[MAX_CELLS / 5]);
+            o = tanh(o);// + w[MAX_CELLS / 5]); // out = tanh(net + w_b * bias)
             o = (o + 1) / 2; // Map (-1, 1) to (0, 1), so as to avoid division by zero
 
             if (LABELS_TR[j] == 1)
@@ -173,25 +171,27 @@ void crossover(){
         else                    p = p2[i];
 
         n = rps[p].n_types;
-        children[i].decay = rps[p].decay;
-        children[i].n_types = n;
 
         for (k = 0; k < n; k++){
             if (rand() % 100 < 50)  p = p1[i];
             else                    p = p2[i];
 
-            if (k == 0) // Receptor cells
-                q = 0;
-            else if (k == n - 1) // Ganglion cells
-                q = rps[p].n_types - 1;
-            else // Interneurons; select randomly from one of the parents
             q = rand() % rps[p].n_types;
 
             children[i].axons[k] = rps[p].axons[q];
             children[i].dendrites[k] = rps[p].dendrites[q];
             children[i].polarities[k] = rps[p].polarities[q];
-            children[i].n_cells[k] = rps[p].n_cells[q];
+            if (k == 0) { // Receptor cells
+                if (rps[p].n_cells[0] != MAX_CELLS) fprintf(stderr, "\n!\n");
+                children[i].n_cells[k] = MAX_CELLS;
+            }else if (k == n - 1) { // Ganglion cells
+                if (rps[p].n_cells[rps[p].n_types - 1] != MAX_CELLS / 5) fprintf(stderr, "\n~\n");
+                children[i].n_cells[k] = MAX_CELLS / 5;
+            }
         }
+
+        children[i].decay = rps[p].decay;
+        children[i].n_types = n;
     }
 }
 
@@ -215,7 +215,7 @@ void mutation(){
         }
 
         // TODO: variable receptors (requires the input to be a function rather than discrete)
-        for (j = 1; j < n - 1; j++){ // Skip receptors
+        for (j = 1; j < n - 1; j++){ // Skip receptors & ganglion
             // Mutate polarities, in very small amount per time
             vdRngGaussian(VSL_RNG_METHOD_GAUSSIAN_BOXMULLER, STREAM,
                           1, &rps[i].polarities[j], rps[i].polarities[j], 0.005);

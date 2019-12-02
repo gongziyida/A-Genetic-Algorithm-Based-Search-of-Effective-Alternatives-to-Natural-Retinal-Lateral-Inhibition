@@ -152,10 +152,10 @@ void process(RetinaParam *rp, double *input) {
     int n = rp->n_types; // For convenience
 
     // Set the states to 0
-    memset(rp->old_states, 0, MAX_TYPES * MAX_CELLS * sizeof(double));
+    memset(rp->old_states, 0.1, MAX_TYPES * MAX_CELLS * sizeof(double));
     memset(rp->new_states, 0, MAX_TYPES * MAX_CELLS * sizeof(double));
 
-    int i, j, ni, nj;
+    int i, j, k, ni, nj;
     double d[MAX_CELLS]; // For storing derivatives
     double res[MAX_CELLS]; // For storing matrix-vector multiplication results
 
@@ -186,9 +186,12 @@ void process(RetinaParam *rp, double *input) {
 
                 if (nj == 0) continue;
 
-                // I_j = W_ji * V_j
+                for (k = 0; k < nj; k++)  // Sigmoid
+                    res[k] = 1 / (1 + exp(-rp->old_states[j * MAX_CELLS + k]));
+
+                // I_j = W_ji * sigmoid(V_j)
                 cblas_dgemv(CblasRowMajor, CblasNoTrans, ni, nj, 1, rp->c[j * n + i].w, nj,
-                            &rp->old_states[j * MAX_CELLS], 1, 0, res, 1);
+                            res, 1, 0, res, 1);
 
                 cblas_daxpy(ni, 1, res, 1, d, 1); // V_i' = -V_i + sum_j(I_j) [+ I_ext]
             }
@@ -203,8 +206,6 @@ void process(RetinaParam *rp, double *input) {
             // V_i = V_i + dt / tau * V_i'
             cblas_daxpy(ni, DT/TAU, d, 1, &rp->new_states[i * MAX_CELLS], 1);
 
-            for (j = 0; j < ni; j++)  // Sigmoid
-                rp->new_states[i * MAX_CELLS + j] = 1 / (1 + exp(-rp->new_states[i * MAX_CELLS + j]));
 
         }
 

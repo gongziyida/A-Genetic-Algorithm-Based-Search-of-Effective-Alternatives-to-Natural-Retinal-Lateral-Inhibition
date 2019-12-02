@@ -17,7 +17,7 @@ ref_pred = np.zeros(MAX_CELLS, dtype=np.float64)
 ref_pred[MAX_CELLS//4 : 3*MAX_CELLS//4+1] = 10
 
 
-def perturb(ref, num, std=3):
+def perturb(ref, num, std=1):
     d = np.abs(np.random.normal(ref, std, size=(num, MAX_CELLS)))
     d_min = d.min(axis=1)
     d_max = d.max(axis=1)
