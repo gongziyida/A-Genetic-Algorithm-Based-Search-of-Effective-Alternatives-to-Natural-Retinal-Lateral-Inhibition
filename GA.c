@@ -96,9 +96,9 @@ void test_p_p(){
             o = (o + 1) / 2; // Map (-1, 1) to (0, 1), so as to avoid division by zero
 
             if (LABELS_TR[j] == 1)
-                err += -log(o == 0 ? 0.0001 : o);
+                err += -log(o < 0.001 ? 0.001 : o);
             else
-                err += -log(o == 1 ? 0.0001 : (1 - o));
+                err += -log(o > 0.999 ? 0.001 : (1 - o));
         }
 
         if (should_die || isinf(err)) {

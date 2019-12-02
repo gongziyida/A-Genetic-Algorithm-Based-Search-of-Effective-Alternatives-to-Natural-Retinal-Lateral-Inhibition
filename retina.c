@@ -218,15 +218,15 @@ void process(RetinaParam *rp, double *input) {
 
         if (t != SIM_TIME - 1) // New becomes old
             cblas_dcopy(MAX_TYPES * MAX_CELLS, rp->new_states, 1, rp->old_states, 1);
-        else{
+/*        else{ // End
+            // Normalize the state of ganglion cells
             double max = -1;
             double *state = &rp->new_states[MAX_CELLS * (rp->n_types - 1)];
             for (j = 0; j < MAX_CELLS / 5; j++){
-                if (state[j] < 0) fprintf(stderr, "!");
                 if (state[j] > max) max = state[j];
             }
             cblas_dscal(MAX_CELLS / 5, 1/max, state, 1);
-        }
+        }*/
     }
      /* For testing purpose
     fclose(log);
