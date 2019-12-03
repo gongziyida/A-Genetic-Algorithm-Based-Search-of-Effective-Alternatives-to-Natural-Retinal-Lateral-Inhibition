@@ -13,12 +13,15 @@ typedef struct Connections{
 } Connections;
 
 typedef struct RetinaParam{
-    double decay;       // Decay of weight w.r.t. distance
+//    double decay;       // Decay of weight w.r.t. distance
     int n_types;        // Number of types of interneurons + one type of receptor + one type of ganglion
+    int *n_cells;       // Number of cells for each type
     int *axons;         // Binary axon descriptors of interneuron types
     int *dendrites;     // Binary dendrite descriptors of interneuron types
     double *polarities; // Polarities of interneuron types
-    int *n_cells;       // Number of cells for each type
+    // decay = 0.5 * cos(phi * (dist - beta)) + 0.5
+    double *phi;        // Wavelength scale
+    double *beta;       // Phase shift
 
     double *new_states; // The new states of nodes
     double *old_states; // The old states of nodes
@@ -28,7 +31,7 @@ typedef struct RetinaParam{
         s\t |   0   |   1   | ... | n-1
         ----|-------|-------|-----|---
           0 |   0   |   1   | ... | n-1
-          1 |   n   |   1   | ... | 2n-1
+          1 |   n   |  n+1  | ... | 2n-1
           2 |  2n   | 2n+1  | ... | 3n-1
           ...
         n-1 | n^2-n |n^2-n+1| ... | n^2-1

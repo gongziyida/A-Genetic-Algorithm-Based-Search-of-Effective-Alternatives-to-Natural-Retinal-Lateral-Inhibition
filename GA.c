@@ -134,12 +134,15 @@ int comparator(const void *rp1, const void *rp2){
 }
 
 void selection(){
+    int I;
     int rival1, rival2;
 
     for (int i = 0; i < NUM_INDIVIDUALS - NUM_ELITES; i++){ // Choose each child's parents
-        // Randomly select two rivals
-        rival1 = rand() % NUM_INDIVIDUALS;
-        rival2 = rand() % NUM_INDIVIDUALS;
+        I = NUM_ELITES + i;
+        do {// Randomly select two rivals
+            rival1 = rand() % NUM_INDIVIDUALS;
+            rival2 = rand() % NUM_INDIVIDUALS;
+        } while (rival1 == I || rival2 == I);
 
         if (rand() % 100 < 90){ // 0.90 chance to pick the one with the lower cost (winner)
             p1[i] = (rps[rival1].cost < rps[rival2].cost)? rival1 : rival2;
@@ -150,8 +153,7 @@ void selection(){
         do{ // Avoid self-crossover
             rival1 = rand() % NUM_INDIVIDUALS;
             rival2 = rand() % NUM_INDIVIDUALS;
-
-        } while (rival1 == p1[i] || rival2 == p1[i]);
+        } while (rival1 == p1[i] || rival2 == p1[i] || rival1 == I || rival2 == I);
 
         if (rand() % 100 < 90){ // Similar to above
             p2[i] = (rps[rival1].cost < rps[rival2].cost)? rival1 : rival2;
@@ -176,21 +178,22 @@ void crossover(){
             if (rand() % 100 < 50)  p = p1[i];
             else                    p = p2[i];
 
-            q = rand() % rps[p].n_types;
+            if (k == 0) // Receptor cells
+                q = 0;
+            else if (k == n - 1) // Ganglion cells
+                q = rps[p].n_types - 1;
+            else // Interneurons
+                q = rand() % rps[p].n_types;
 
             children[i].axons[k] = rps[p].axons[q];
             children[i].dendrites[k] = rps[p].dendrites[q];
             children[i].polarities[k] = rps[p].polarities[q];
-            if (k == 0) { // Receptor cells
-                if (rps[p].n_cells[0] != MAX_CELLS) fprintf(stderr, "\n!\n");
-                children[i].n_cells[k] = MAX_CELLS;
-            }else if (k == n - 1) { // Ganglion cells
-                if (rps[p].n_cells[rps[p].n_types - 1] != MAX_CELLS / 5) fprintf(stderr, "\n~\n");
-                children[i].n_cells[k] = MAX_CELLS / 5;
-            }
+            children[i].n_cells[k] = rps[p].n_cells[q];
+            children[i].phi[k] = rps[p].phi[q];
+            children[i].beta[k] = rps[p].beta[q];
         }
 
-        children[i].decay = rps[p].decay;
+//        children[i].decay = rps[p].decay;
         children[i].n_types = n;
     }
 }
@@ -201,10 +204,10 @@ void mutation(){
     for (i = NUM_ELITES; i < NUM_INDIVIDUALS; i++){
         n = rps[i].n_types;
 
-        vdRngGaussian(VSL_RNG_METHOD_GAUSSIAN_BOXMULLER, STREAM,
-                1, &rps[i].decay, rps[i].decay, WIDTH/20.0);
-        if (rps[i].decay < 0) rps[i].decay = 0; // Cannot be smaller than 0
-        if (rps[i].decay > WIDTH) rps[i].decay = WIDTH; // Cannot be larger than WIDTH
+//        vdRngGaussian(VSL_RNG_METHOD_GAUSSIAN_BOXMULLER, STREAM,
+//                1, &rps[i].decay, rps[i].decay, WIDTH/20.0);
+//        if (rps[i].decay < 0) rps[i].decay = 0; // Cannot be smaller than 0
+//        if (rps[i].decay > WIDTH) rps[i].decay = WIDTH; // Cannot be larger than WIDTH
 
         // Randomly flip two bits for each axon and dendrite descriptor
         for (j = 0; j < n; j++){
@@ -215,13 +218,30 @@ void mutation(){
         }
 
         // TODO: variable receptors (requires the input to be a function rather than discrete)
-        for (j = 1; j < n - 1; j++){ // Skip receptors & ganglion
+        for (j = 0; j < n; j++){
             // Mutate polarities, in very small amount per time
             vdRngGaussian(VSL_RNG_METHOD_GAUSSIAN_BOXMULLER, STREAM,
                           1, &rps[i].polarities[j], rps[i].polarities[j], 0.005);
             // Clip
             if (rps[i].polarities[j] > 1) rps[i].polarities[j] = 1;
             else if (rps[i].polarities[j] < -1) rps[i].polarities[j] = -1;
+
+            // Mutate phi, in very small amount per time
+            vdRngGaussian(VSL_RNG_METHOD_GAUSSIAN_BOXMULLER, STREAM,
+                          1, &rps[i].phi[j], rps[i].phi[j], 0.01);
+            // Clip
+            if (rps[i].phi[j] > 1) rps[i].phi[j] = 1;
+            else if (rps[i].phi[j] < 0) rps[i].phi[j] = 0;
+
+            // Mutate beta, in very small amount per time
+            vdRngGaussian(VSL_RNG_METHOD_GAUSSIAN_BOXMULLER, STREAM,
+                          1, &rps[i].beta[j], rps[i].beta[j], 0.01);
+            // Clip
+            if (rps[i].beta[j] > M_PI) rps[i].beta[j] = M_PI;
+            else if (rps[i].beta[j] < -M_PI) rps[i].beta[j] = -M_PI;
+
+            // Skip receptors and ganglion cells
+            if (j == 0 || j == n - 1) continue;
 
             chance = rand() % 100;
             // 0.05 probability the number of cells will decrease/increase by 1

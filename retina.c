@@ -26,8 +26,8 @@ void mk_connection(RetinaParam *rp){
     int n = rp->n_types;
     int ni, nj; // Number of cells
     double affinityij, affinityji;
-    double decay = rp->decay;
-    double d; // Distance-dependent weight factor
+//    double decay = rp->decay;
+    double d, dij, dji; // Distance-dependent weight factor
     double abs_maxij, abs_maxji; // Absolute max
     double res; // Auxiliary var to store the result
 
@@ -44,7 +44,13 @@ void mk_connection(RetinaParam *rp){
 
     // Make the weight from j to i
     for (i = 0; i < n - 1; i++){
-        for (j = i + 1; j < n; j++){
+        for (j = i; j < n; j++){
+            if (i == j){ // Self-connection, ignore, but set the from and to
+                rp->c[i * n + j].from = i;
+                rp->c[i * n + j].to = i;
+                continue;
+            }
+
             ni = rp->n_cells[i];
             nj = rp->n_cells[j];
 
@@ -69,11 +75,15 @@ void mk_connection(RetinaParam *rp){
             // Calculate decay * affinity / distance
             for (p = 0; p < ni; p++){
                 for (q = 0; q < nj; q++){
-                    d = exp(-decay * fabs(rp->intvl[i] * (p - 0.5 * (ni - 1)) -
-                            rp->intvl[j] * (q - 0.5 * (nj - 1))) / WIDTH);
+                    d = fabs(rp->intvl[i] * (p - (ni - 1) / 2) - rp->intvl[j] * (q - (nj - 1) / 2));
+                    dij = 0.5 * cos(rp->phi[j] * (d - rp->beta[j])) + 0.5;
+                    dji = 0.5 * cos(rp->phi[i] * (d - rp->beta[i])) + 0.5;
+                    if (dij < 0 || dji < 0) fprintf(stderr, "\n!\n");
+//                    d = exp(-decay * fabs(rp->intvl[i] * (p - 0.5 * (ni - 1)) -
+//                            rp->intvl[j] * (q - 0.5 * (nj - 1))) / WIDTH);
 
                     // Weights for cij
-                    res = d * rp->polarities[j] * affinityij;
+                    res = dij * rp->polarities[j] * affinityij;
                     rp->c[kij].w[p * nj + q] = isnan(res) ? 0 : res;
 
                     res = fabs(res);
@@ -81,7 +91,7 @@ void mk_connection(RetinaParam *rp){
                     if (res > abs_maxij) abs_maxij = res;
 
                     // Weights for cji
-                    res = d * rp->polarities[i] * affinityji;
+                    res = dji * rp->polarities[i] * affinityji;
                     rp->c[kji].w[q * ni + p] = isnan(res) ? 0 : res;
 
                     res = fabs(res);
@@ -101,7 +111,7 @@ void init_retina(RetinaParam *rp){
     if (STREAM == NULL)// Random STREAM init
         vslNewStream(&STREAM, VSL_BRNG_MT19937, 1);
 
-    vdRngUniform(VSL_RNG_METHOD_UNIFORM_STD, STREAM, 1, &rp->decay, 0, WIDTH);
+//    vdRngUniform(VSL_RNG_METHOD_UNIFORM_STD, STREAM, 1, &rp->decay, 0, WIDTH);
 
     int n; // n_types
     viRngUniform(VSL_RNG_METHOD_UNIFORM_STD, STREAM, 1, &n, 2, MAX_TYPES + 1);
@@ -122,6 +132,12 @@ void init_retina(RetinaParam *rp){
     rp->n_cells[0] = MAX_CELLS;
     rp->n_cells[n - 1] = MAX_CELLS / 5;
 
+    rp->phi = mkl_malloc(MAX_TYPES * sizeof(double), 64);
+    vdRngUniform(VSL_RNG_METHOD_UNIFORM_STD, STREAM, n, rp->phi, 0, 1);
+
+    rp->beta = mkl_malloc(MAX_TYPES * sizeof(double), 64);
+    vdRngUniform(VSL_RNG_METHOD_UNIFORM_STD, STREAM, n, rp->beta, -M_PI, M_PI);
+
     rp->new_states = mkl_malloc(MAX_TYPES * MAX_CELLS * sizeof(double), 64);
     rp->old_states = mkl_malloc(MAX_TYPES * MAX_CELLS * sizeof(double), 64);
 
@@ -139,6 +155,8 @@ void rm_retina(RetinaParam *rp){
     mkl_free(rp->axons);
     mkl_free(rp->dendrites);
     mkl_free(rp->polarities);
+    mkl_free(rp->phi);
+    mkl_free(rp->beta);
     mkl_free(rp->new_states);
     mkl_free(rp->old_states);
     mkl_free(rp->n_cells);
@@ -217,17 +235,18 @@ void process(RetinaParam *rp, double *input) {
         }
         */
 
-        if (t != SIM_TIME - 1) // New becomes old
+        if (t != SIM_TIME - DT) // New becomes old
             cblas_dcopy(MAX_TYPES * MAX_CELLS, rp->new_states, 1, rp->old_states, 1);
-/*        else{ // End
-            // Normalize the state of ganglion cells
+        else{ // End
+            double *ganglion = &rp->new_states[MAX_CELLS * (rp->n_types - 1)];
             double max = -1;
-            double *state = &rp->new_states[MAX_CELLS * (rp->n_types - 1)];
-            for (j = 0; j < MAX_CELLS / 5; j++){
-                if (state[j] > max) max = state[j];
+            for (k = 0; k < MAX_CELLS / 5; k++){
+                ganglion[k] = 1 / (1 + exp(-ganglion[k])); // Sigmoid
+                if (ganglion[k] > max) max = ganglion[k];
             }
-            cblas_dscal(MAX_CELLS / 5, 1/max, state, 1);
-        }*/
+            if (max != 0) // Normalize the state of ganglion cells
+                cblas_dscal(MAX_CELLS / 5, 1/max, ganglion, 1);
+        }
     }
      /* For testing purpose
     fclose(log);
