@@ -103,14 +103,14 @@ if __name__ == '__main__':
     ax.set_ylabel('Cost')
     fig.savefig('results/performance.png', bbox_inches='tight')
 
-    fig, ax = plt.subplots(1)
-    fig.set_size_inches(8, 8)
+    # fig, ax = plt.subplots(1)
+    # fig.set_size_inches(8, 8)
 
     fname = 'results/%d'
     for i in range(int(sys.argv[1])):
         cost, flag = save_img(fname % i)
-        ax.scatter(i, cost, color=flag)
-
-    ax.set_xlabel('Generation')
-    ax.set_ylabel('Cost')
-    fig.savefig('results/final_elites.png', bbox_inches='tight')
+        # ax.scatter(i, cost, color=flag)
+    #
+    # ax.set_xlabel('Rank')
+    # ax.set_ylabel('Cost')
+    # fig.savefig('results/final_elites(partial).png', bbox_inches='tight')

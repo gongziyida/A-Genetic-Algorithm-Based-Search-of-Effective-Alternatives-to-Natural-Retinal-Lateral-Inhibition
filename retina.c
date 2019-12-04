@@ -33,17 +33,20 @@ void mk_connection(RetinaParam *rp){
 
     rp->avg_intvl = 0;
     rp->n_layers = 0;
+    rp->n_synapses = 0;
     // Calculate the intervals first
     for (i = 0; i < n; i++){
-        if (rp->n_cells[i] > 0) rp->n_layers++;
-        rp->intvl[i] = (double) WIDTH / (rp->n_cells[i] + 1.0);
+        if (rp->n_cells[i] > 0) {
+            rp->n_layers++;
+            rp->intvl[i] = (double) WIDTH / rp->n_cells[i];
+        } else rp->intvl[i] = WIDTH;
         rp->avg_intvl += rp->intvl[i];
     }
 
     rp->avg_intvl /= n;
 
     // Make the weight from j to i
-    for (i = 0; i < n - 1; i++){
+    for (i = 0; i < n; i++){
         for (j = i; j < n; j++){
             if (i == j){ // Self-connection, ignore, but set the from and to
                 rp->c[i * n + j].from = i;
@@ -58,6 +61,9 @@ void mk_connection(RetinaParam *rp){
 
             kij = j * n + i;
             kji = i * n + j;
+
+            memset(rp->c[kij].w, 0, nj * ni * sizeof(double));
+            memset(rp->c[kji].w, 0, nj * ni * sizeof(double));
 
             rp->c[kij].from = j;
             rp->c[kij].to = i;
@@ -75,10 +81,15 @@ void mk_connection(RetinaParam *rp){
             // Calculate decay * affinity / distance
             for (p = 0; p < ni; p++){
                 for (q = 0; q < nj; q++){
-                    d = fabs(rp->intvl[i] * (p - (ni - 1) / 2) - rp->intvl[j] * (q - (nj - 1) / 2));
-                    dij = 0.5 * cos(rp->phi[j] * (d - rp->beta[j])) + 0.5;
-                    dji = 0.5 * cos(rp->phi[i] * (d - rp->beta[i])) + 0.5;
-                    if (dij < 0 || dji < 0) fprintf(stderr, "\n!\n");
+                    d = fabs(rp->intvl[i] * (p - ((double) ni - 1) / 2) -
+                            rp->intvl[j] * (q - ((double) nj - 1) / 2));
+
+                    dij = (d - rp->beta[j]) / rp->phi[j];
+                    dij = exp(-dij * dij);
+
+                    dji = (d - rp->beta[i]) / rp->phi[i];
+                    dji = exp(-dji * dji);
+
 //                    d = exp(-decay * fabs(rp->intvl[i] * (p - 0.5 * (ni - 1)) -
 //                            rp->intvl[j] * (q - 0.5 * (nj - 1))) / WIDTH);
 
@@ -87,7 +98,6 @@ void mk_connection(RetinaParam *rp){
                     rp->c[kij].w[p * nj + q] = isnan(res) ? 0 : res;
 
                     res = fabs(res);
-                    if (res < 0.05) rp->c[kij].w[p * nj + q] = 0; // Thresholding
                     if (res > abs_maxij) abs_maxij = res;
 
                     // Weights for cji
@@ -95,7 +105,6 @@ void mk_connection(RetinaParam *rp){
                     rp->c[kji].w[q * ni + p] = isnan(res) ? 0 : res;
 
                     res = fabs(res);
-                    if (res < 0.05) rp->c[kij].w[q * ni + p] = 0; // Thresholding
                     if (res > abs_maxji) abs_maxji = res;
                 }
             }
@@ -103,6 +112,18 @@ void mk_connection(RetinaParam *rp){
             // Normalize between -1 and 1
             if (abs_maxij > 0) cblas_dscal(ni * nj, 1/abs_maxij, rp->c[kij].w, 1);
             if (abs_maxji > 0) cblas_dscal(ni * nj, 1/abs_maxji, rp->c[kji].w, 1);
+
+
+            for (p = 0; p < ni; p++) {
+                for (q = 0; q < nj; q++) {
+                    // Thresholding
+                    if (fabs(rp->c[kij].w[p * nj + q]) < 0.01) rp->c[kij].w[p * nj + q] = 0;
+                    else rp->n_synapses += 1;
+
+                    if (fabs(rp->c[kji].w[q * ni + p]) < 0.01) rp->c[kji].w[q * ni + p] = 0;
+                    else rp->n_synapses += 1;
+                }
+            }
         }
     }
 }
@@ -125,7 +146,7 @@ void init_retina(RetinaParam *rp){
     viRngUniform(VSL_RNG_METHOD_UNIFORM_STD, STREAM, n, rp->dendrites, INT_MIN, INT_MAX);
 
     rp->polarities = mkl_malloc(MAX_TYPES * sizeof(double), 64);
-    vdRngUniform(VSL_RNG_METHOD_UNIFORM_STD, STREAM, n, rp->polarities, -1, 1);
+    vdRngUniform(VSL_RNG_METHOD_UNIFORM_STD, STREAM, n, rp->polarities, -0.9999, 1);
 
     rp->n_cells = mkl_malloc(MAX_TYPES * sizeof(int), 64);
     viRngUniform(VSL_RNG_METHOD_UNIFORM_STD, STREAM, n, rp->n_cells, 1, MAX_CELLS);
@@ -133,10 +154,10 @@ void init_retina(RetinaParam *rp){
     rp->n_cells[n - 1] = MAX_CELLS / 5;
 
     rp->phi = mkl_malloc(MAX_TYPES * sizeof(double), 64);
-    vdRngUniform(VSL_RNG_METHOD_UNIFORM_STD, STREAM, n, rp->phi, 0, 1);
+    vdRngUniform(VSL_RNG_METHOD_UNIFORM_STD, STREAM, n, rp->phi, 1, WIDTH);
 
     rp->beta = mkl_malloc(MAX_TYPES * sizeof(double), 64);
-    vdRngUniform(VSL_RNG_METHOD_UNIFORM_STD, STREAM, n, rp->beta, -M_PI, M_PI);
+    vdRngUniform(VSL_RNG_METHOD_UNIFORM_STD, STREAM, n, rp->beta, 0, WIDTH);
 
     rp->new_states = mkl_malloc(MAX_TYPES * MAX_CELLS * sizeof(double), 64);
     rp->old_states = mkl_malloc(MAX_TYPES * MAX_CELLS * sizeof(double), 64);
@@ -170,7 +191,7 @@ void process(RetinaParam *rp, double *input) {
     int n = rp->n_types; // For convenience
 
     // Set the states to 0
-    memset(rp->old_states, 0.1, MAX_TYPES * MAX_CELLS * sizeof(double));
+    memset(rp->old_states, 0, MAX_TYPES * MAX_CELLS * sizeof(double));
     memset(rp->new_states, 0, MAX_TYPES * MAX_CELLS * sizeof(double));
 
     int i, j, k, ni, nj;
@@ -239,13 +260,13 @@ void process(RetinaParam *rp, double *input) {
             cblas_dcopy(MAX_TYPES * MAX_CELLS, rp->new_states, 1, rp->old_states, 1);
         else{ // End
             double *ganglion = &rp->new_states[MAX_CELLS * (rp->n_types - 1)];
-            double max = -1;
+//            double max = -1;
             for (k = 0; k < MAX_CELLS / 5; k++){
                 ganglion[k] = 1 / (1 + exp(-ganglion[k])); // Sigmoid
-                if (ganglion[k] > max) max = ganglion[k];
+//                if (ganglion[k] > max) max = ganglion[k];
             }
-            if (max != 0) // Normalize the state of ganglion cells
-                cblas_dscal(MAX_CELLS / 5, 1/max, ganglion, 1);
+//            if (max != 0) // Normalize the state of ganglion cells
+//                cblas_dscal(MAX_CELLS / 5, 1/max, ganglion, 1);
         }
     }
      /* For testing purpose

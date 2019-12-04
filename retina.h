@@ -19,9 +19,9 @@ typedef struct RetinaParam{
     int *axons;         // Binary axon descriptors of interneuron types
     int *dendrites;     // Binary dendrite descriptors of interneuron types
     double *polarities; // Polarities of interneuron types
-    // decay = 0.5 * cos(phi * (dist - beta)) + 0.5
-    double *phi;        // Wavelength scale
-    double *beta;       // Phase shift
+    // decay = exp(-((dist - beta) / phi)^2)
+    double *phi;        // Scale, in [1, WIDTH)
+    double *beta;          // Center, in [0, WIDTH)
 
     double *new_states; // The new states of nodes
     double *old_states; // The old states of nodes
@@ -38,6 +38,7 @@ typedef struct RetinaParam{
      */
     double avg_intvl;
     int n_layers;
+    int n_synapses;
     double cost;   // Fitness cost, the larger the worse
 } RetinaParam;
 

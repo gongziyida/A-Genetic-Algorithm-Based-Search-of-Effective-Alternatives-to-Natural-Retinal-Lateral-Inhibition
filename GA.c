@@ -36,6 +36,9 @@ void test_p_p(){
         vdRngUniform(VSL_RNG_METHOD_UNIFORM_STD, STREAM, MAX_CELLS / 5 + 1, w, -1, 1); // Randomize
         for (j = 0; j < TRAIN_SIZE; j++){ // For each training data
             process(&rps[i], &TRAIN[j * MAX_CELLS]);
+//            fprintf(stderr, "\n");
+//            for (int l = 0; l < MAX_CELLS / 5; l++)
+//            fprintf(stderr, "%f ", rps[i].new_states[MAX_CELLS * (rps[i].n_types - 1) + l]);
 
             // net = w^T x
             o = cblas_ddot(MAX_CELLS / 5, w, 1,
@@ -58,7 +61,7 @@ void test_p_p(){
 
             // Because it is possible for a ill-behaved retina to give zero output which easily
             // leads the perceptron to have near zero output, we cannot use sigmoid directly here
-            o = tanh(o);// + w[MAX_CELLS / 5]); // out = tanh(net + w_b * bias)
+            o = tanh(o + w[MAX_CELLS / 5]); // out = tanh(net + w_b * bias)
             o = (o + 1) / 2; // Map (-1, 1) to (0, 1), so as to avoid division by zero
 
             if (LABELS_TR[j] == 1) { // w -= - eta * (1 - o^2) / o * input
@@ -71,7 +74,7 @@ void test_p_p(){
 
             cblas_daxpy(MAX_CELLS / 5, coef,
                     &rps[i].new_states[MAX_CELLS * (rps[i].n_types - 1)], 1, w, 1);
-//            w[MAX_CELLS / 5] -= coef; // Note that the bias is 1 so we do not have to multiply
+            w[MAX_CELLS / 5] -= coef; // Note that the bias is 1 so we do not have to multiply
 
             // Find min/max
             for (k = 0, min_w = 1e+308, max_w = -1e+308; k < MAX_CELLS / 5 + 1; k++){
@@ -79,7 +82,7 @@ void test_p_p(){
                 if (w[k] > max_w) max_w = w[k];
             }
             // Normalize
-            for (k = 0; k < MAX_CELLS / 5 ; k++) w[k] = (w[k] - min_w) / (max_w - min_w);
+            for (k = 0; k < MAX_CELLS / 5 + 1; k++) w[k] = (w[k] - min_w) / (max_w - min_w);
         }
 
         // Test
@@ -90,7 +93,7 @@ void test_p_p(){
             // net = w^T x
             o = cblas_ddot(MAX_CELLS / 5, w, 1,
                     &rps[i].new_states[MAX_CELLS * (rps[i].n_types - 1)], 1);
-            o = tanh(o);// + w[MAX_CELLS / 5]); // out = tanh(net + w_b * bias)
+            o = tanh(o + w[MAX_CELLS / 5]); // out = tanh(net + w_b * bias)
             o = (o + 1) / 2; // Map (-1, 1) to (0, 1), so as to avoid division by zero
 
             if (LABELS_TR[j] == 1)
@@ -104,8 +107,11 @@ void test_p_p(){
             should_die = 0;
         } else{
             err /= TEST_SIZE;
-            // TODO: play with coefficients
-            rps[i].cost = err; //+ 1 / rps[i].avg_intvl + rps[i].n_layers;
+            rps[i].cost = err;
+//            rps[i].cost = err + 1 / rps[i].avg_intvl;
+//            rps[i].cost = err + 0.05 * rps[i].n_layers;
+//            rps[i].cost = err + 1 / rps[i].avg_intvl + 0.05 * rps[i].n_layers;
+//            rps[i].cost = err + (double) rps[i].n_synapses / (2 * pow(MAX_CELLS * MAX_TYPES, 2));
             if (rps[i].cost > max_cost) max_cost = rps[i].cost;
         }
     }
@@ -182,8 +188,14 @@ void crossover(){
                 q = 0;
             else if (k == n - 1) // Ganglion cells
                 q = rps[p].n_types - 1;
-            else // Interneurons
-                q = rand() % rps[p].n_types;
+            else { // Interneurons
+                if (rps[p].n_types > 2) // Has interneurons
+                    q = 1 + rand() % (rps[p].n_types - 2);
+                else {
+                    p = p == p1[i] ? p2[i] : p1[i]; // Another parent must have interneurons
+                    q = 1 + rand() % (rps[p].n_types - 2);
+                }
+            }
 
             children[i].axons[k] = rps[p].axons[q];
             children[i].dendrites[k] = rps[p].dendrites[q];
@@ -221,24 +233,24 @@ void mutation(){
         for (j = 0; j < n; j++){
             // Mutate polarities, in very small amount per time
             vdRngGaussian(VSL_RNG_METHOD_GAUSSIAN_BOXMULLER, STREAM,
-                          1, &rps[i].polarities[j], rps[i].polarities[j], 0.005);
+                          1, &rps[i].polarities[j], rps[i].polarities[j], 0.001);
             // Clip
             if (rps[i].polarities[j] > 1) rps[i].polarities[j] = 1;
             else if (rps[i].polarities[j] < -1) rps[i].polarities[j] = -1;
 
             // Mutate phi, in very small amount per time
             vdRngGaussian(VSL_RNG_METHOD_GAUSSIAN_BOXMULLER, STREAM,
-                          1, &rps[i].phi[j], rps[i].phi[j], 0.01);
+                          1, &rps[i].phi[j], rps[i].phi[j], 0.1);
             // Clip
-            if (rps[i].phi[j] > 1) rps[i].phi[j] = 1;
-            else if (rps[i].phi[j] < 0) rps[i].phi[j] = 0;
+            if (rps[i].phi[j] > WIDTH) rps[i].phi[j] = WIDTH;
+            else if (rps[i].phi[j] < 1) rps[i].phi[j] = 1;
 
             // Mutate beta, in very small amount per time
             vdRngGaussian(VSL_RNG_METHOD_GAUSSIAN_BOXMULLER, STREAM,
-                          1, &rps[i].beta[j], rps[i].beta[j], 0.01);
+                          1, &rps[i].beta[j], rps[i].beta[j], 0.1);
             // Clip
-            if (rps[i].beta[j] > M_PI) rps[i].beta[j] = M_PI;
-            else if (rps[i].beta[j] < -M_PI) rps[i].beta[j] = -M_PI;
+            if (rps[i].beta[j] > WIDTH) rps[i].beta[j] = WIDTH;
+            else if (rps[i].beta[j] < 0) rps[i].beta[j] = 0;
 
             // Skip receptors and ganglion cells
             if (j == 0 || j == n - 1) continue;
@@ -247,10 +259,12 @@ void mutation(){
             // 0.05 probability the number of cells will decrease/increase by 1
             if (chance < 5) {
                 rps[i].n_cells[j] += 1;
-                if (rps[i].n_cells[j] > MAX_CELLS) rps[i].n_cells[j]--; // Cannot go above the max
+                // Cannot go below the min (0)
+                if (rps[i].n_cells[j] > MAX_CELLS) rps[i].n_cells[j] = MAX_CELLS;
             } else if (chance < 10){
                 rps[i].n_cells[j] -= 1;
-                if (rps[i].n_cells[j] < 0) rps[i].n_cells[j] = 0; // Cannot go below the min (0)
+                // Cannot go below the min (0)
+                if (rps[i].n_cells[j] < 0) rps[i].n_cells[j] = 0;
             }
         }
     }
