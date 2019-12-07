@@ -30,7 +30,6 @@ def save_img(fname):
                 if c.any(): # any non-zeros
                     connections.update({(s, t): c})
 
-
                 i += m + 1
             else:
                 raise ValueError

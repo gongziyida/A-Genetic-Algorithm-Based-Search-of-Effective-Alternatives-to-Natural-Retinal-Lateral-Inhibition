@@ -61,7 +61,7 @@ void test_p_p(){
 
             // Because it is possible for a ill-behaved retina to give zero output which easily
             // leads the perceptron to have near zero output, we cannot use sigmoid directly here
-            o = tanh(o + w[MAX_CELLS / 5]); // out = tanh(net + w_b * bias)
+            o = tanh(o);// + w[MAX_CELLS / 5]); // out = tanh(net + w_b * bias)
             o = (o + 1) / 2; // Map (-1, 1) to (0, 1), so as to avoid division by zero
 
             if (LABELS_TR[j] == 1) { // w -= - eta * (1 - o^2) / o * input
@@ -74,15 +74,15 @@ void test_p_p(){
 
             cblas_daxpy(MAX_CELLS / 5, coef,
                     &rps[i].new_states[MAX_CELLS * (rps[i].n_types - 1)], 1, w, 1);
-            w[MAX_CELLS / 5] -= coef; // Note that the bias is 1 so we do not have to multiply
+//            w[MAX_CELLS / 5] -= coef; // Note that the bias is 1 so we do not have to multiply
 
             // Find min/max
-            for (k = 0, min_w = 1e+308, max_w = -1e+308; k < MAX_CELLS / 5 + 1; k++){
+            for (k = 0, min_w = 1e+308, max_w = -1e+308; k < MAX_CELLS / 5; k++){
                 if (w[k] < min_w) min_w = w[k];
                 if (w[k] > max_w) max_w = w[k];
             }
             // Normalize
-            for (k = 0; k < MAX_CELLS / 5 + 1; k++) w[k] = (w[k] - min_w) / (max_w - min_w);
+            for (k = 0; k < MAX_CELLS / 5; k++) w[k] = (w[k] - min_w) / (max_w - min_w);
         }
 
         // Test
@@ -93,7 +93,7 @@ void test_p_p(){
             // net = w^T x
             o = cblas_ddot(MAX_CELLS / 5, w, 1,
                     &rps[i].new_states[MAX_CELLS * (rps[i].n_types - 1)], 1);
-            o = tanh(o + w[MAX_CELLS / 5]); // out = tanh(net + w_b * bias)
+            o = tanh(o);// + w[MAX_CELLS / 5]); // out = tanh(net + w_b * bias)
             o = (o + 1) / 2; // Map (-1, 1) to (0, 1), so as to avoid division by zero
 
             if (LABELS_TR[j] == 1)
@@ -139,33 +139,29 @@ int comparator(const void *rp1, const void *rp2){
     else return 0;
 }
 
+int select_p(int cur, int another_p){
+    int p, rival1, rival2;
+    do {// Randomly select two rivals
+        rival1 = rand() % NUM_INDIVIDUALS;
+        rival2 = rand() % NUM_INDIVIDUALS;
+    } while (rival1 == cur || rival2 == cur || rival1 == another_p || rival2 == another_p);
+
+    double ratio = rps[rival1].cost / rps[rival2].cost;
+    if (ratio > 1) ratio = 1.0 / ratio; // Assume the range is (0, 1]
+
+    if (rand() % 100 < 100 - 50 * ratio){ // Pick the one with the lower cost (winner)
+        p = (rps[rival1].cost < rps[rival2].cost)? rival1 : rival2;
+    } else { // Pick the one with the high cost (loser)
+        p = (rps[rival1].cost < rps[rival2].cost)? rival2 : rival1;
+    }
+
+    return p;
+}
+
 void selection(){
-    int I;
-    int rival1, rival2;
-
     for (int i = 0; i < NUM_INDIVIDUALS - NUM_ELITES; i++){ // Choose each child's parents
-        I = NUM_ELITES + i;
-        do {// Randomly select two rivals
-            rival1 = rand() % NUM_INDIVIDUALS;
-            rival2 = rand() % NUM_INDIVIDUALS;
-        } while (rival1 == I || rival2 == I);
-
-        if (rand() % 100 < 90){ // 0.90 chance to pick the one with the lower cost (winner)
-            p1[i] = (rps[rival1].cost < rps[rival2].cost)? rival1 : rival2;
-        } else { // 0.10 chance to pick the one with the high cost (loser)
-            p1[i] = (rps[rival1].cost < rps[rival2].cost)? rival2 : rival1;
-        }
-
-        do{ // Avoid self-crossover
-            rival1 = rand() % NUM_INDIVIDUALS;
-            rival2 = rand() % NUM_INDIVIDUALS;
-        } while (rival1 == p1[i] || rival2 == p1[i] || rival1 == I || rival2 == I);
-
-        if (rand() % 100 < 90){ // Similar to above
-            p2[i] = (rps[rival1].cost < rps[rival2].cost)? rival1 : rival2;
-        } else {
-            p2[i] = (rps[rival1].cost < rps[rival2].cost)? rival2 : rival1;
-        }
+        p1[i] = select_p(i + NUM_ELITES, -1);
+        p2[i] = select_p(i + NUM_ELITES, p1[i]);
     }
 }
 
