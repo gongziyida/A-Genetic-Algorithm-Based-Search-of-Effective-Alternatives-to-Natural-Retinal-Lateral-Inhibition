@@ -18,7 +18,7 @@ if [ ! -d results ] ; then
 fi
 
 # Copy the environment variables and data
-for i in PARAM DATA LABELS ;
+for i in PARAM DATA SW ;
 do
 	cp "$i" results/
 done

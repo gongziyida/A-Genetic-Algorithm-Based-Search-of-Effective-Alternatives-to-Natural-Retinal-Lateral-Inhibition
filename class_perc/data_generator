@@ -1,6 +1,8 @@
 #! /usr/bin/env python3
 
 import numpy as np
+from scipy.stats import norm
+import sys
 
 with open('PARAM', 'r') as f:
     for i, line in enumerate(f):
@@ -11,37 +13,31 @@ with open('PARAM', 'r') as f:
         if i == 10:
             MAX_CELLS = int(line.split(' = ')[1]) 
 
-ref_prey = np.zeros(MAX_CELLS, dtype=np.float64)
-ref_prey[MAX_CELLS//2-1 : MAX_CELLS//2+2] = 10
-ref_pred = np.zeros(MAX_CELLS, dtype=np.float64)
-ref_pred[MAX_CELLS//4 : 3*MAX_CELLS//4+1] = 10
+C = (MAX_CELLS - 1) // 2
 
+data = np.ones((TRAIN_SIZE + TEST_SIZE, MAX_CELLS)) * 0.05
+r = np.random.uniform(low=5, high=C*0.8, size=data.shape[0]).astype(np.int32)
+width = r * 2
 
-def perturb(ref, num, std=1):
-    d = np.abs(np.random.normal(ref, std, size=(num, MAX_CELLS)))
-    d_min = d.min(axis=1)
-    d_max = d.max(axis=1)
-    d = (d - d_min[:, None]) / (d_max - d_min)[:, None]
-    return d
+gaussian = norm.pdf(np.arange(-5, 6), scale=3)
 
-def gen_data(num):
-    t = np.zeros((num, MAX_CELLS), dtype=np.float64)
-    t[:num//2] = perturb(ref_prey, num//2)
-    t[num//2:] = perturb(ref_pred, num//2)
+for i in range(data.shape[0]):
+    # Create rectangle signal
+    data[i, C - r[i]: C + r[i] + 1] = 1
 
-    l = np.ones(num, dtype=np.int32)
-    l[num//2:] = 0 # Pred with label 0, prey with label 1
-    indices = np.arange(start=0, stop=num)
-    np.random.shuffle(indices)
-    t = t[indices]
-    l = l[indices]
-    return t, l
+    data[i] = np.abs(np.random.normal(data[i], 0.2, size=MAX_CELLS))
 
-train, train_labels = gen_data(TRAIN_SIZE)
-test, test_labels = gen_data(TEST_SIZE)
+    data[i] = np.convolve(data[i], gaussian, 'same')
 
-data = np.append(train, test, axis=0)
-labels = np.append(train_labels, test_labels, axis=0)
+mins = data.min(axis=1)
+maxs = data.max(axis=1)
+data = (data - mins[:, None]) / (maxs - mins)[:, None]
+
+if sys.argv[1] == '--plot':
+    import matplotlib.pyplot as plt
+    for i in range(data.shape[0]): 
+        plt.plot(data[i])
+    plt.show()
 
 np.savetxt('DATA', data, fmt='%0.5f')
-np.savetxt('LABELS', labels, fmt='%d')
+np.savetxt('SW', width, fmt='%d')

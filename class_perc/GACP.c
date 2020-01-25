@@ -53,7 +53,7 @@ void test(){
             o = tanh(o);// + w[NUM_RGCS]); // out = tanh(net + w_b * bias)
             o = (o + 1) / 2; // Map (-1, 1) to (0, 1), so as to avoid division by zero
 
-            if (SW_TR[j] == 1) { // w -= - eta * (1 - o^2) / o * input
+            if (LABELS_TR[j] == 1) { // w -= - eta * (1 - o^2) / o * input
                 if (o < 0.001) o = 0.001; // Avoid near 0
                 coef = -ETA * (1 - o * o) / o;
             } else { // w -= - eta * (1 - o^2) / (1 - o) * input
@@ -83,7 +83,7 @@ void test(){
             o = tanh(o);// + w[NUM_RGCS]); // out = tanh(net + w_b * bias)
             o = (o + 1) / 2; // Map (-1, 1) to (0, 1), so as to avoid division by zero
 
-            if (SW_TR[j] == 1)
+            if (LABELS_TR[j] == 1)
                 err += -log(o < 0.001 ? 0.001 : o);
             else
                 err += -log(o > 0.999 ? 0.001 : (1 - o));

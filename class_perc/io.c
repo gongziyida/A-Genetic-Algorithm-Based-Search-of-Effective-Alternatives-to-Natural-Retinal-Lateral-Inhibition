@@ -12,12 +12,12 @@ int MAX_ITERATIONS, NUM_INDIVIDUALS, NUM_ELITES, TRAIN_SIZE, TEST_SIZE,
 double TAU, DT, ETA;
 double *TRAIN;
 double *TEST;
-int *LABELS_TR;
-int *LABELS_TE;
+int *SW_TR;
+int *SW_TE;
 
 char *PARAM = "PARAM";
 char *DATA = "DATA";
-char *LABELS = "LABELS";
+char *SW = "SW";
 
 char *PARAM_FORMAT =
         "Max Iterations = %d\n"
@@ -47,9 +47,9 @@ void load(){
 
     // Malloc
     TRAIN = mkl_malloc(TRAIN_SIZE * MAX_CELLS * sizeof(double), 64);
-    LABELS_TR = mkl_malloc(TRAIN_SIZE * sizeof(int), 64);
+    SW_TR = mkl_malloc(TRAIN_SIZE * sizeof(int), 64);
     TEST = mkl_malloc(TEST_SIZE * MAX_CELLS * sizeof(double), 64);
-    LABELS_TE = mkl_malloc(TEST_SIZE * sizeof(int), 64);
+    SW_TE = mkl_malloc(TEST_SIZE * sizeof(int), 64);
 
     // Read data
     int i, j;
@@ -65,25 +65,25 @@ void load(){
 
     fclose(fdata);
 
-    FILE *flabels = fopen(LABELS, "r");
+    FILE *fsw = fopen(SW, "r");
 
     // Read labels
     for (i = 0; i < TEST_SIZE + TRAIN_SIZE; i++){
         if (i < TEST_SIZE){
-            fscanf(flabels, "%d%*c", &LABELS_TE[i]);
+            fscanf(fsw, "%d%*c", &SW_TE[i]);
         } else{
-            fscanf(flabels, "%d%*c", &LABELS_TR[i-TEST_SIZE]);
+            fscanf(fsw, "%d%*c", &SW_TR[i-TEST_SIZE]);
         }
     }
 
-    fclose(flabels);
+    fclose(fsw);
 }
 
 void free_data(){
     mkl_free(TRAIN);
     mkl_free(TEST);
-    mkl_free(LABELS_TR);
-    mkl_free(LABELS_TE);
+    mkl_free(SW_TR);
+    mkl_free(SW_TE);
 }
 
 void save(Retina *rs){
