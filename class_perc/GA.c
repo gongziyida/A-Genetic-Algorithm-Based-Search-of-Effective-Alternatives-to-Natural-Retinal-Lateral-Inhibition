@@ -14,95 +14,101 @@
 #include "io.h"
 
 /* Globals */
+double *TEST;
+double *SW;
 int *p1, *p2;       // Parent index spaces
 Retina *rs;   // Individual space
 Retina *children;   // buffer space
 
 VSLStreamStatePtr STREAM; // Random generator stream
 
+int generate(double *sig){
+    int s, t; // start, end
+    viRngUniform(VSL_RNG_METHOD_UNIFORM_STD, STREAM, 1, &s, 4, MAX_CELLS - 8);
+    viRngUniform(VSL_RNG_METHOD_UNIFORM_STD, STREAM, 1, &t, s + 4, MAX_CELLS - 4);
+
+    vdRngUniform(VSL_RNG_METHOD_UNIFORM_STD, STREAM, MAX_CELLS, sig, -0.2, 0.2); // Randomize
+
+    double maxi = INT_MIN;
+    double mini = INT_MAX;
+    double gaussian[7] = {0.065, 0.12, 0.175, 0.2, 0.175, 0.12, 0.065};
+    double aux[MAX_CELLS];
+    for (int i = 0; i < MAX_CELLS; i++){
+        if (i >= s && i <= t) sig[i]++;
+
+        // Conv
+        aux[i] = 0;
+        for (int j = 0; j < 7; j++)
+            aux[i] += (i - j - 3) < 0 ? 0 : gaussian[j] * sig[i - j - 3];
+
+        if (aux[i] > maxi) maxi = aux[i];
+        if (aux[i] < mini) mini = aux[i];
+    }
+
+    // Normalize
+    for (int i = 0; i < MAX_CELLS; i++)
+        sig[i] = (aux[i] - mini) / (maxi - mini);
+
+    return t - s;
+}
+
 /* Test on perturbed stimuli using perceptron */
 void test(){
-    double w[NUM_RGCS + 1]; // Perceptron connection matrix
-    double o, coef, err, max_cost;
-    double max_w, min_w;
+    double w[NUM_RGCS - 1]; // Perceptron connection matrix
+    double o, sq_se, se;
 	double gang_out[NUM_RGCS];
+	double sig[MAX_CELLS];
+	double width;
     int i, j, k;
-    int should_die;
 
     for (i = 0; i < NUM_INDIVIDUALS; i++){
-        max_cost = INT_MIN;
-        err = 0;
-        should_die = 0;
-
-        // TODO: Solve the over train problem
+        rs[i].cost = 0;
         // Train
-        vdRngUniform(VSL_RNG_METHOD_UNIFORM_STD, STREAM, NUM_RGCS + 1, w, -1, 1); // Randomize
-        for (j = 0; j < TRAIN_SIZE; j++){ // For each training data
-            process(&rs[i], &TRAIN[j * MAX_CELLS], gang_out);
+        vdRngUniform(VSL_RNG_METHOD_UNIFORM_STD, STREAM, NUM_RGCS - 2 + 1, w, -1, 1); // Randomize
+        for (j = 0; j < 50; j++){ // For each training data
+            width = generate(sig);
 
-            // net = w^T x
-            o = cblas_ddot(NUM_RGCS, w, 1, gang_out, 1);
+            process(&rs[i], sig, gang_out);
 
-            if (isinf(o)){
-                should_die = 1;
+            // net = w^T x + b
+            o = cblas_ddot(NUM_RGCS - 2, w, 1, &gang_out[1], 1) + w[NUM_RGCS - 2];
+//            printf("%d %f %f\n", j, width, o);
+
+            // se = 0.5 * (o - true_width)^2
+            sq_se = width - o;
+
+	        // d_se/d_w = (o - true) * input
+	        for (k = 0; k < NUM_RGCS - 2; k++)
+	    	    w[k] += ETA * sq_se * gang_out[k + 1];
+
+    	    w[NUM_RGCS - 2] += ETA * sq_se;
+        }
+
+        for (j = 0; j < TEST_SIZE; j++){ // For each training data
+            process(&rs[i], &TEST[j * MAX_CELLS], gang_out);
+
+//            for (int k = 0; k < NUM_RGCS; k++) printf("%f ", gang_out[k]);
+//            printf("\n");
+
+            // net = w^T x + b
+            o = cblas_ddot(NUM_RGCS - 2, w, 1, &gang_out[1], 1) + w[NUM_RGCS - 2];
+//            printf("--> %d %f %f\n", j, SW[j], o);
+
+            if (isnan(o) || isinf(o)){
+                rs[i].cost = 0.0/0.0; // NaN
                 break;
             }
 
-            // Because it is possible for a ill-behaved retina to give zero output which easily
-            // leads the perceptron to have near zero output, we cannot use sigmoid directly here
-            o = tanh(o);// + w[NUM_RGCS]); // out = tanh(net + w_b * bias)
-            o = (o + 1) / 2; // Map (-1, 1) to (0, 1), so as to avoid division by zero
+            // se = (o - true_width)^2
+            sq_se = SW[j] - o;
+            se = sq_se * sq_se;
 
-            if (SW_TR[j] == 1) { // w -= - eta * (1 - o^2) / o * input
-                if (o < 0.001) o = 0.001; // Avoid near 0
-                coef = -ETA * (1 - o * o) / o;
-            } else { // w -= - eta * (1 - o^2) / (1 - o) * input
-                if (o > 0.999) o = 0.999; // Avoid near 1
-                coef = -ETA * (1 - o * o) / (1 - o);
-            }
-
-            cblas_daxpy(NUM_RGCS, coef, gang_out, 1, w, 1);
-//            w[NUM_RGCS] -= coef; // Note that the bias is 1 so we do not have to multiply
-
-            // Find min/max
-            for (k = 0, min_w = 1e+308, max_w = -1e+308; k < NUM_RGCS; k++){
-                if (w[k] < min_w) min_w = w[k];
-                if (w[k] > max_w) max_w = w[k];
-            }
-            // Normalize
-            for (k = 0; k < NUM_RGCS; k++) w[k] = (w[k] - min_w) / (max_w - min_w);
+            rs[i].cost += se;
         }
 
-        // Test
-        for (j = 0; j < TEST_SIZE; j++){ // For each training data
-            if (should_die) break;
-            process(&rs[i], &TEST[j*MAX_CELLS], gang_out);
+        rs[i].cost /= TEST_SIZE;
+        rs[i].cost += rs[i].n_synapses / 2000;
 
-            // net = w^T x
-            o = cblas_ddot(NUM_RGCS, w, 1, gang_out, 1);
-            o = tanh(o);// + w[NUM_RGCS]); // out = tanh(net + w_b * bias)
-            o = (o + 1) / 2; // Map (-1, 1) to (0, 1), so as to avoid division by zero
-
-            if (SW_TR[j] == 1)
-                err += -log(o < 0.001 ? 0.001 : o);
-            else
-                err += -log(o > 0.999 ? 0.001 : (1 - o));
-        }
-
-        if (should_die || isinf(err)) {
-            rs[i].cost = INT_MAX;
-            should_die = 0;
-        } else{
-            err /= TEST_SIZE;
-            rs[i].cost = err;
-//            rs[i].cost = err + 1 / rs[i].avg_intvl;
-//            rs[i].cost = err + (double) rs[i].n_synapses / (2 * pow(MAX_CELLS * MAX_TYPES, 2));
-            if (rs[i].cost > max_cost) max_cost = rs[i].cost;
-        }
-    }
-
-    for (i = 0; i < NUM_INDIVIDUALS; i++){
-        if (rs[i].cost == INT_MAX) rs[i].cost = max_cost + 1;
     }
 }
 
@@ -115,6 +121,9 @@ int comparator(const void *r1, const void *r2){
      */
     const Retina *rA = (Retina *) r1;
     const Retina *rB = (Retina *) r2;
+
+    if (isnan(rA->cost)) return 1;
+    if (isnan(rB->cost)) return -1;
 
     if (rA->cost > rB->cost) return 1;
     else if (rA->cost < rB->cost) return -1;
@@ -205,11 +214,6 @@ void mutation(){
     for (i = NUM_ELITES; i < NUM_INDIVIDUALS; i++){
         n = rs[i].n_types;
 
-//        vdRngGaussian(VSL_RNG_METHOD_GAUSSIAN_BOXMULLER, STREAM,
-//                1, &rs[i].decay, rs[i].decay, WIDTH/20.0);
-//        if (rs[i].decay < 0) rs[i].decay = 0; // Cannot be smaller than 0
-//        if (rs[i].decay > WIDTH) rs[i].decay = WIDTH; // Cannot be larger than WIDTH
-
         // Randomly flip two bits for each axon and dendrite descriptor
         for (j = 0; j < n; j++){
             for (k = 0; k < 2; k++){
@@ -231,7 +235,7 @@ void mutation(){
             vdRngGaussian(VSL_RNG_METHOD_GAUSSIAN_BOXMULLER, STREAM,
                           1, &rs[i].phi[j], rs[i].phi[j], 0.1);
             // Clip
-            if (rs[i].phi[j] > WIDTH / 2) rs[i].phi[j] = WIDTH / 2;
+            if (rs[i].phi[j] > WIDTH / 4) rs[i].phi[j] = WIDTH / 4;
             else if (rs[i].phi[j] < 1) rs[i].phi[j] = 1;
 
             // Mutate beta, in very small amount per time
@@ -248,12 +252,12 @@ void mutation(){
             // 0.05 probability the number of cells will decrease/increase by 1
             if (chance < 5) {
                 rs[i].n_cells[j] += 1;
-                // Cannot go below the min (0)
+                // Cannot go above the max
                 if (rs[i].n_cells[j] > MAX_CELLS) rs[i].n_cells[j] = MAX_CELLS;
             } else if (chance < 10){
                 rs[i].n_cells[j] -= 1;
-                // Cannot go below the min (0)
-                if (rs[i].n_cells[j] < 0) rs[i].n_cells[j] = 0;
+                // Cannot go below the min (1)
+                if (rs[i].n_cells[j] < 1) rs[i].n_cells[j] = 1;
             }
         }
 
@@ -269,6 +273,15 @@ int main(int argc, char **argv){
     vslNewStream(&STREAM, VSL_BRNG_MT19937, 1);
 
     int i, j;
+
+    fprintf(stderr, "Generating testing data\n");
+    double aux_test[TEST_SIZE * MAX_CELLS];
+    TEST = aux_test;
+    double aux_sw[TEST_SIZE];
+    SW = aux_sw;
+    for (i = 0; i < TEST_SIZE; i++){
+        SW[i] = generate(&TEST[i * MAX_CELLS]);
+    }
 
     fprintf(stderr, "Initializing retinas\n");
 
@@ -324,8 +337,6 @@ int main(int argc, char **argv){
     for (i = 0; i < NUM_INDIVIDUALS; i++){
         die(&rs[i]);
     }
-
-	free_data();
 
 	fclose(log);
 

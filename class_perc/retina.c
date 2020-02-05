@@ -25,10 +25,9 @@ void potentiate(Retina *r){
     int i, j, p, q;
     int n = r->n_types;
     int ni, nj; // Number of cells
-    double affinityij, affinityji;
-//    double decay = r->decay;
-    double d, dij, dji; // Distance-dependent weight factor
-    double abs_maxij, abs_maxji; // Absolute max
+    double aff;
+    double d; // Distance-dependent weight factor
+    double mini, maxi;
     double res; // Auxiliary var to store the result
 
     r->avg_intvl = 0;
@@ -46,25 +45,25 @@ void potentiate(Retina *r){
     r->avg_intvl /= n;
 
     // Make the weight from j to i
-    for (i = 0; i < n - 1; i++){
-        for (j = i + 1; j < n; j++){
+    for (i = 0; i < n - 1; i++){ // ganglion cells do not project
+        for (j = 0; j < n; j++){
+            if (i == j) continue;
+
             ni = r->n_cells[i];
             nj = r->n_cells[j];
 
             if (ni == 0 || nj == 0) continue;
 
             // ganglion cells only get input from receptors
-            if (j == n - 1 && i != 0) continue; 
-            
-	    memset(r->layers[i].w[j], 0, nj * ni * sizeof(double));
-            memset(r->layers[j].w[i], 0, nj * ni * sizeof(double));
+            if (j == n - 1 && i != 0) continue;
+
+            memset(r->layers[i].w[j], 0, nj * ni * sizeof(double));
 
             // Calculate affinity between -1 and 1
-            affinityij = affinity(r, i, j);
-            affinityji = affinity(r, j, i);
+            aff = affinity(r, j, i);
 
-            abs_maxij = 0;
-            abs_maxji = 0;
+            maxi = INT_MIN;
+            mini = INT_MAX;
 
             // Calculate decay * affinity / distance
             for (p = 0; p < ni; p++){
@@ -72,46 +71,29 @@ void potentiate(Retina *r){
                     d = fabs(r->intvl[i] * (p - ((double) ni - 1) / 2) -
                             r->intvl[j] * (q - ((double) nj - 1) / 2));
 
-                    dij = (d - r->beta[j]) / r->phi[j];
-                    dij = exp(-dij * dij);
+                    d = (d - r->beta[i]) / r->phi[i];
+                    d = exp(-d * d);
 
-                    dji = (d - r->beta[i]) / r->phi[i];
-                    dji = exp(-dji * dji);
-
-//                    d = exp(-decay * fabs(r->intvl[i] * (p - 0.5 * (ni - 1)) -
-//                            r->intvl[j] * (q - 0.5 * (nj - 1))) / WIDTH);
-
-                    // Weights for cij
-                    res = dij * r->polarities[j] * affinityij;
-                    r->layers[j].w[i][p * nj + q] = isnan(res) ? 0 : res;
-
-                    res = fabs(res);
-                    if (res > abs_maxij) abs_maxij = res;
-
-                    // Weights for cji
-                    res = dji * r->polarities[i] * affinityji;
+                    res = d * r->polarities[i] * aff;
                     r->layers[i].w[j][q * ni + p] = isnan(res) ? 0 : res;
 
-                    res = fabs(res);
-                    if (res > abs_maxji) abs_maxji = res;
+                    if (res > maxi) maxi = res;
+                    if (res < mini) mini = res;
                 }
             }
 
-            // Normalize between -1 and 1
-            if (abs_maxij > 0) cblas_dscal(ni * nj, 1/abs_maxij, r->layers[j].w[i], 1);
-            if (abs_maxji > 0) cblas_dscal(ni * nj, 1/abs_maxji, r->layers[i].w[j], 1);
+            // Normalize and thresholding
+            for (p = 0; p < ni; p++){
+                for (q = 0; q < nj; q++){
+                    res = r->layers[i].w[j][q * ni + p] - (r->polarities[i] > 0 ? mini : maxi);
+                    res /= (maxi - mini);
 
-
-            for (p = 0; p < ni; p++) {
-                for (q = 0; q < nj; q++) {
-                    // Thresholding
-                    if (fabs(r->layers[j].w[i][p * nj + q]) < 0.01) 
-                        r->layers[j].w[i][p * nj + q] = 0;
-                    else r->n_synapses += 1;
-
-                    if (fabs(r->layers[i].w[j][q * ni + p]) < 0.01) 
+                    if (fabs(res) < 0.1)
                         r->layers[i].w[j][q * ni + p] = 0;
-                    else r->n_synapses += 1;
+                    else{
+                        r->n_synapses += 1;
+                        r->layers[i].w[j][q * ni + p] = res;
+                    }
                 }
             }
         }
@@ -138,7 +120,7 @@ void maker(Retina *r){
     r->n_cells[0] = MAX_CELLS;
     r->n_cells[n - 1] = NUM_RGCS;
 
-    vdRngUniform(VSL_RNG_METHOD_UNIFORM_STD, STREAM, n, r->phi, 1, WIDTH / 2);
+    vdRngUniform(VSL_RNG_METHOD_UNIFORM_STD, STREAM, n, r->phi, 1, WIDTH / 4);
 
     vdRngUniform(VSL_RNG_METHOD_UNIFORM_STD, STREAM, n, r->beta, 0, WIDTH / 2);
 
@@ -189,15 +171,17 @@ void process(Retina *r, double *input, double *output){
     fprintf(log, "%d\n", n);
     */
 
+    for (i = 0; i < n; i++){
+        // Set the states to 0
+        memset(r->layers[i].old_states, 0, MAX_CELLS * sizeof(double));
+        memset(r->layers[i].new_states, 0, MAX_CELLS * sizeof(double));
+    }
+
     for (double t = 0; t < SIM_TIME; t+=DT){
         for (i = 0; i < n; i++) {
             ni = r->n_cells[i];
 
             if (ni == 0) continue;
-
-            // Set the states to 0
-            memset(r->layers[i].old_states, 0, MAX_CELLS * sizeof(double));
-            memset(r->layers[i].new_states, 0, MAX_CELLS * sizeof(double));
 
             // V_i' = -V_i
             cblas_dcopy(ni, r->layers[i].old_states, 1, d, 1);
@@ -206,7 +190,7 @@ void process(Retina *r, double *input, double *output){
             if (i == 0) // V_i' = -V_i + I_ext
                 cblas_daxpy(ni, 1, input, 1, d, 1);
 
-            for (j = 0; j < n; j++){
+            for (j = 0; j < n - 1; j++){ // Ganglion cells do not project back
                 if (j == i) continue;
 
                 // ganglion cells only get input from receptors
@@ -239,8 +223,6 @@ void process(Retina *r, double *input, double *output){
 
             // V_i = V_i + dt / tau * V_i'
             cblas_daxpy(ni, DT/TAU, d, 1, r->layers[i].new_states, 1);
-
-
         }
 
         /* For testing purose

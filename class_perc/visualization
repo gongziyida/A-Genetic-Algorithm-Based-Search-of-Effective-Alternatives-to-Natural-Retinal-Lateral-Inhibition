@@ -94,6 +94,8 @@ if __name__ == '__main__':
     import networkx as nx
 
     log = np.loadtxt('results/LOG', dtype=np.float64)
+    q = np.nanquantile(log, [0.25, 0.5, 0.75], axis=1).T
+    log = np.ma.masked_invalid(log)
     log_mean = log.mean(axis=1)
     fig, ax = plt.subplots(1)
     fig.set_size_inches(8, 8)
@@ -101,7 +103,7 @@ if __name__ == '__main__':
     ax.plot(log.max(axis=1), color='gray', linestyle='dotted')
     ax.plot(log.min(axis=1), color='gray', linestyle='dotted')
     ax.plot(log_mean, color='red')
-    ax.plot(np.quantile(log, [0.25, 0.5, 0.75], axis=1).T, linestyle='dashed')
+    ax.plot(q, linestyle='dashed')
     ax.legend(['max', 'min', 'mean', 'Q1', 'median', 'Q3'], loc='upper right')
 
     ax.set_xlabel('Generation')

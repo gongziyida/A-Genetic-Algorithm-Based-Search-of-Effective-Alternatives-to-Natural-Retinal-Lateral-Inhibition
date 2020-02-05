@@ -7,23 +7,16 @@
 //#include "retina.h"
 #include "io.h"
 
-int MAX_ITERATIONS, NUM_INDIVIDUALS, NUM_ELITES, TRAIN_SIZE, TEST_SIZE,
+int MAX_ITERATIONS, NUM_INDIVIDUALS, NUM_ELITES, TEST_SIZE,
     SIM_TIME, MAX_TYPES, MAX_CELLS, NUM_RGCS, WIDTH;
 double TAU, DT, ETA;
-double *TRAIN;
 double *TEST;
-int *SW_TR;
-int *SW_TE;
-
-char *PARAM = "PARAM";
-char *DATA = "DATA";
-char *SW = "SW";
+int *SW;
 
 char *PARAM_FORMAT =
         "Max Iterations = %d\n"
         "Num Individuals = %d\n"
         "Num Elites = %d\n"
-        "Train Size = %d\n"
         "Test Size = %d\n"
         "Sim Time = %d\n"
         "Tau = %lf\n"
@@ -35,55 +28,13 @@ char *PARAM_FORMAT =
         "Width = %d";
 
 void load(){
-    FILE *fparam = fopen(PARAM, "r");
+    FILE *fparam = fopen("PARAM", "r");
     // Read parameters
     fscanf(fparam, PARAM_FORMAT, &MAX_ITERATIONS, &NUM_INDIVIDUALS, &NUM_ELITES,
-            &TRAIN_SIZE, &TEST_SIZE, &SIM_TIME, &TAU, &DT, &ETA,
+            &TEST_SIZE, &SIM_TIME, &TAU, &DT, &ETA,
             &MAX_TYPES, &MAX_CELLS, &NUM_RGCS, &WIDTH);
 
     fclose(fparam);
-
-    FILE *fdata = fopen(DATA, "r");
-
-    // Malloc
-    TRAIN = mkl_malloc(TRAIN_SIZE * MAX_CELLS * sizeof(double), 64);
-    SW_TR = mkl_malloc(TRAIN_SIZE * sizeof(int), 64);
-    TEST = mkl_malloc(TEST_SIZE * MAX_CELLS * sizeof(double), 64);
-    SW_TE = mkl_malloc(TEST_SIZE * sizeof(int), 64);
-
-    // Read data
-    int i, j;
-    for (i = 0; i < TEST_SIZE + TRAIN_SIZE; i++){
-        for (j = 0; j < MAX_CELLS; j++){
-            if (i < TEST_SIZE){
-                fscanf(fdata, "%lf%*c", &TEST[i*MAX_CELLS+j]);
-            } else{
-                fscanf(fdata, "%lf%*c", &TRAIN[(i-TEST_SIZE)*MAX_CELLS+j]);
-            }
-        }
-    }
-
-    fclose(fdata);
-
-    FILE *fsw = fopen(SW, "r");
-
-    // Read labels
-    for (i = 0; i < TEST_SIZE + TRAIN_SIZE; i++){
-        if (i < TEST_SIZE){
-            fscanf(fsw, "%d%*c", &SW_TE[i]);
-        } else{
-            fscanf(fsw, "%d%*c", &SW_TR[i-TEST_SIZE]);
-        }
-    }
-
-    fclose(fsw);
-}
-
-void free_data(){
-    mkl_free(TRAIN);
-    mkl_free(TEST);
-    mkl_free(SW_TR);
-    mkl_free(SW_TE);
 }
 
 void save(Retina *rs){
@@ -103,7 +54,7 @@ void save(Retina *rs){
         fprintf(f, "%f\n", rs[k].cost);
         fprintf(f, "%d\n", n);
 
-        for (i = 0; i < n; i++){ // from
+        for (i = 0; i < n - 1; i++){ // from
 			for (j = 0; j < n; j++){ // to
 				if (j == i) continue;
 				if (j == n - 1 && i != 0) continue; // interneurons to ganglion
@@ -118,7 +69,7 @@ void save(Retina *rs){
 				for (p = 0; p < n_to; p++){
 					for (q = 0; q < n_from; q++){
 						fprintf(f, "%.3f ", 
-								rs[k].layers[i].w[j][p * n_to + q]);
+								rs[k].layers[i].w[j][p * n_from + q]);
 					}
 					fprintf(f, "\n");
 				}

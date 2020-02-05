@@ -1,3 +1,0 @@
-gcc -g -Wall -Werror -m64 -c -o obj/retina.o retina.c
-gcc -g -Wall -Werror -m64  obj/io.o  obj/retina.o  obj/GA.o -o GA -I/opt/intel/compilers_and_libraries_2019.5.281/linux/mkl/include -I. -L/opt/intel/compilers_and_libraries_2019.5.281/linux/mkl/lib/intel64 -Wl,--no-as-needed -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread -lm -ldl
-Generating data
