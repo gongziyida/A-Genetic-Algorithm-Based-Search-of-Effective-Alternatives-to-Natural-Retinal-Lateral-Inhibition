@@ -93,25 +93,22 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
     import networkx as nx
 
-    log = np.loadtxt('class_perc/0.0005_1/LOG', dtype=np.float64)
+    log = np.loadtxt('results/LOG', dtype=np.float64)
     q = np.nanquantile(log, [0.25, 0.5, 0.75], axis=1).T
     log = np.ma.masked_invalid(log)
     log_mean = log.mean(axis=1)
     fig, ax = plt.subplots(1)
     fig.set_size_inches(8, 8)
-
+    
+    ax.plot(log.max(axis=1), color='gray', linestyle='dotted')
     ax.plot(log.min(axis=1), color='gray', linestyle='dotted')
     ax.plot(log_mean, color='red')
     ax.plot(q, linestyle='dashed')
-    ax.legend(['min', 'mean', 'Q1', 'median', 'Q3'], loc='upper right')
+    ax.legend(['max', 'min', 'mean', 'Q1', 'median', 'Q3'], loc='upper right')
 
     ax.set_xlabel('Generation')
     ax.set_ylabel('Cost')
     ax.set_xticks(np.arange(0, log.shape[0], log.shape[0] // 10))
-
-    a = plt.axes([0.4, 0.67, 0.3, 0.15])
-    a.plot(log.max(axis=1), color='gray', linestyle='dotted')
-    a.set_title('Maximum')
     fig.savefig('results/performance.png', bbox_inches='tight')
 
     # fig, ax = plt.subplots(1)
