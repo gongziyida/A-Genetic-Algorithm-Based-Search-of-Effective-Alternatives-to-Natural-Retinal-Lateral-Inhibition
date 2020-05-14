@@ -1,0 +1,11 @@
+max_iterations 10
+population 100
+eum_elites 10
+sim_time 4
+tau 2
+dt 0.2
+eta 0.01
+epochs 10
+max_num_cells 100
+num_rGCs 20
+noise_level 0.1

@@ -1,0 +1,12 @@
+Max Iterations = 30
+Num Individuals = 500
+Num Elites = 100
+Test Size = 200
+Sim Time = 4
+Tau = 2
+dt = 0.2
+Eta = 0.01
+Max Types = 10
+Max Cells = 50
+Num RGCs = 15
+Width = 50

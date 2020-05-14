@@ -1,9 +1,0 @@
-FILENAME='fruit.csv'
-COLUMNS='380:784:4'
-
-FILENAME='leaf.csv'
-COLUMNS='380:784:4'
-
-FILENAME='illum.csv'
-COLUMNS='380:784:4'
-ROWS='shade overcast sunshine sun_fleck'
