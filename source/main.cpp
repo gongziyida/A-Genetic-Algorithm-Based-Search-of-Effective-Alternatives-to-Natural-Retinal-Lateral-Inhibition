@@ -1,42 +1,77 @@
 #include <iostream>
 #include <fstream>
+#include <random>
+#include <Eigen/Dense>
 #include "Retina.h"
+#include "tool.h"
 #include "GA.h"
 
-using namespace std;
-
-int ITERS, POPULATION, ELITES, CELLS, RGCS, EPOCHS;
+int DUP, ITERS, POPULATION, ELITES, CELLS, RGCS, EPOCHS;
 double T, TAU, DT, ETA, NOISE;
 
-inline void read_param()
+void read_param()
 {
     char aux[20];
 
-    ifstream f("PARAM");
+    std::ifstream f("PARAM");
     if (f.is_open())
     {
-        f >> aux >> ITERS >> aux >> POPULATION >> aux >> ELITES
+        f >> aux >> DUP >> ITERS >> aux >> POPULATION >> aux >> ELITES
           >> aux >> T >> aux >> TAU >> aux >> DT >> aux >> ETA >> aux >> EPOCHS
           >> aux >> CELLS >> aux >> RGCS >> NOISE;
 
-        cout << ITERS << " " << POPULATION << " " << ELITES << " "
-             << T << " " << TAU << " " << DT << " " << CELLS << " " << RGCS << endl;
+        // cout << ITERS << " " << POPULATION << " " << ELITES << " "
+        //      << T << " " << TAU << " " << DT << " " << CELLS << " " << RGCS << std::endl;
         f.close();
-    } else cout << "PARAM not found." << endl;
+    } else std::cout << "PARAM not found." << std::endl;
 }
 
+void write_genome(std::string &buffer, const Genome &g)
+{
+    buffer = std::to_string(i)
+}
+
+void write(Genome *g, Retina *r)
+{
+    for (int i = 0; i < ELITES; i++)
+    {
+        std::string nameg = "results/" + std::to_string(i) + "g.txt";
+        std::ofstream fg(nameg);
+        std::string genome;
+        write_genome(genome, g[i]);
+        fg << genome << std::endl;
+        fg.close();
+
+        std::string namer = "results/" + std::to_string(i) + "r.txt";
+        std::ofstream fr(namer);
+
+        fr << r[i] << std::endl;
+        fr.close();
+    }
+}
 
 int main()
 {
     read_param();
 
-    Genome g[10];
-    Retina r[10];
+    // TODO: Multi-thread
 
-    for (int i = 0; i < 10; i++)
+    MatrixXd sigs, st;
+    generate(sigs, st, TRAIN_SIZE + TEST_SIZE, 1);
+
+    Genome g[POPULATION];
+    Retina r[POPULATION];
+
+    for (int i = 0; i < POPULATION; i++)
     {
-        r[i].init(g[i]);
+        std::cout << g[i] << std::endl;
+        std::cout << r[i] << std::endl;
     }
+
+    GA sim = GA(g, r);
+    // sim.run(sigs, st);
+
+    // write(g, r);
 
     return 0;
 }
