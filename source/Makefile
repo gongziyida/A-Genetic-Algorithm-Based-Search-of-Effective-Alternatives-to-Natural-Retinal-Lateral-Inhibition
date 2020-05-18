@@ -1,15 +1,19 @@
-CFLAGS	= -g -Wall -Werror
+CFLAGS	= -g 
 
-OBJS	= $(patsubst %, obj/%, main.o, Retina.o, GA.o)
+OBJS	= tool.o Retina.o GA.o
 
-DEPS 	= Retina.h GA.h
+# OBJSD	= $(addprefix .obj/, $(OBJS))
 
-Simulation: $(OBJS) $(DEPS)
-	g++ $(CFLAGS) $(OBJS) -o $@ 
+DEPS 	= tool.h Retina.h GA.h
 
-obj/%.o: %.c $(DEPS)
-	@ mkdir -p obj # Mkdir if not found
+
+.obj/%.o: %.cpp $(DEPS)
+	@ mkdir -p .obj
 	g++ $(CFLAGS) -c -o $@ $<
 
+Simulation: .obj/$(OBJS) $(DEPS)
+	g++ $(CFLAGS) .obj/$(OBJS) -o $@ 
+	
+
 clean:
-	rm -rf obj Simulation
+	rm -rf .obj/ Simulation

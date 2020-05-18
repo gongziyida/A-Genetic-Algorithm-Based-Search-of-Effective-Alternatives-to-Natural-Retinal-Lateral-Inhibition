@@ -1,6 +1,11 @@
 #include <iostream>
 #include <random>
 #include <Eigen/Dense>
+#include "tool.h"
+#define S1 0
+#define T1 1
+#define S2 2
+#define T2 3
 using Eigen::MatrixXd;
 
 void normal(double &v, const double w, const double lo, const double hi)
@@ -42,8 +47,9 @@ void generate(MatrixXd &signals, MatrixXd &st, const int n,
     for (i = 0; i < n; i++)
     {
         // Randomly create two rectangles
-        int s1 = uniform(2, CELLS * 0.7 - 2);
-        int t1 = uniform(s1 + 2, CELLS * 0.8);
+        int s1, t1;
+		uniform(s1, 2, CELLS * 0.7 - 2);
+        uniform(t1, s1 + 2, CELLS * 0.8);
 
         buffer.block(i, s1, 1, t1 - s1).array() += 1;
 
@@ -52,8 +58,9 @@ void generate(MatrixXd &signals, MatrixXd &st, const int n,
 
         if (num_sigs == 2)
         {
-            int s2 = uniform(s1, CELLS - 4);
-            int t2 = uniform(s2 + 2, CELLS - 2);
+            int s2, t2;
+			uniform(s2, s1, CELLS - 4);
+            uniform(t2, s2 + 2, CELLS - 2);
 
             buffer.block(i, s2, 1, t2 - s2).array() += 1;
 
@@ -139,7 +146,8 @@ double model(const MatrixXd &x, const MatrixXd &y)
     MatrixXd yhat;
     for (int i = 0; i < EPOCHS; i++)
     {
-        cout << i << " " << nn(train_x, train_y, wih, who, hbias, yhat, true) << endl;
+        std::cout << i << " "
+				  << nn(train_x, train_y, wih, who, hbias, yhat, true) << std::endl;
     }
 
     return nn(test_x, test_y, wih, who, hbias, yhat);

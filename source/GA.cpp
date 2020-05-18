@@ -12,7 +12,7 @@ GA::GA(Genome *genomes, Retina *retinas)
 {
     g = genomes;
     r = retinas;
-    children = new Retina[POPULATION - ELITES];
+    children = new Genome[POPULATION - ELITES];
     p1 = new int[POPULATION];
     p2 = new int[POPULATION];
 }
@@ -36,18 +36,21 @@ int comparator(const void *r1, const void *r2)
      * If r1's cost < r2's cost (r2 is woge), r1 ranks higher than r2. Return -1.
      * Else, return 0.
      */
-    const Retina *r_a = (Retina *) r1;
-    const Retina *r_b = (Retina *) r2;
+    const Genome *r_a = (Genome *) r1;
+    const Genome *r_b = (Genome *) r2;
 
-    if (isnan(r_a->cost)) return 1;
-    if (isnan(r_b->cost)) return -1;
+    double a = r_a->cost, b = r_b->cost;
 
-    if (r_a->cost > r_b->cost)      return 1;
-    else if (r_a->cost < r_b->cost) return -1;
+    if (a != a && b != b) return 0;
+    else if (a != a) return 1;
+    else if (b != b) return -1;
+
+    if (a > b)      return 1;
+    else if (a < b) return -1;
     else return 0;
 }
 
-int select_p(const int cur, const int p_)
+int GA::select_p(const int cur, const int p_)
 {
     int p, rival1, rival2;
     do
@@ -86,7 +89,7 @@ void GA::crossover()
 
         int n = g[p].n_types;
 
-        for (k = 0; k < n; k++)
+        for (int k = 0; k < n; k++)
         {
             if (rand() % 100 < 50)  p = p1[i];
             else                    p = p2[i];
@@ -118,7 +121,7 @@ void GA::crossover()
     {
         g[ELITES + i].n_types = children[i].n_types;
 
-        for (k = 0; k < MAX_TYPES; k++)
+        for (int k = 0; k < MAX_TYPES; k++)
         {
             g[ELITES + i].axon[k] = children[i].axon[k];
             g[ELITES + i].dendrite[k] = children[i].dendrite[k];
@@ -182,9 +185,9 @@ void GA::mutation()
 void GA::run(const MatrixXd &x, const MatrixXd &y)
 {
     // Open a log
-    ofstream f("results/log.txt");
+    std::ofstream f("results/log.txt");
 
-    for (int i = 0; i < ITERATIONS; i++)
+    for (int i = 0; i < ITERS; i++)
     {
         std::cout << "\r" << i;
         std::cout.flush();
@@ -197,8 +200,8 @@ void GA::run(const MatrixXd &x, const MatrixXd &y)
         qsort(g, POPULATION, sizeof(Genome), comparator);
 
         // Output stats
-        for (j = 0; j < POPULATION; j++) f << g[j].cost;
-        f << endl;
+        for (int j = 0; j < POPULATION; j++) f << g[j].cost;
+        f << "\n";
 
         selection();
         crossover();

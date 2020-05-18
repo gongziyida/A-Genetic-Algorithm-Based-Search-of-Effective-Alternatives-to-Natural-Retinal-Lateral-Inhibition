@@ -189,7 +189,7 @@ void Genome::organize()
     n_synapses = 0;
     cost = 0;
 
-    if (n_type == 2) return;
+    if (n_types == 2) return;
 
     for (int i = 1; i < n_types - 1; i++)
     {

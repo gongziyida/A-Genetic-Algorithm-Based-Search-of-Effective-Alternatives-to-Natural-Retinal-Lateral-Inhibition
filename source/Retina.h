@@ -7,9 +7,6 @@ using Eigen::MatrixXd;
 
 #define MAX_TYPES 10
 
-extern int ITERS, POPULATION, ELITES, CELLS, RGCS, EPOCHS;
-extern double T, TAU, DT, ETA;
-
 struct Genome
 {
 	// Number of types of neurons
@@ -35,7 +32,7 @@ struct Genome
 	Genome();
 	void organize();
 	friend std::ostream & operator<<(std::ostream &os, const Genome &g);
-}
+};
 
 class Retina
 {

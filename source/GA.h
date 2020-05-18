@@ -16,9 +16,10 @@ private:
     Retina *r;
 
     void eval(const MatrixXd &x, const MatrixXd &y);
+    int select_p(const int cur, const int p_);
     void selection();
     void crossover();
     void mutation();
-}
+};
 
 #endif

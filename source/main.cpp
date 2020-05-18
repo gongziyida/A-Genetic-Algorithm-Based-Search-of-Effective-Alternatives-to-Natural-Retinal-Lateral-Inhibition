@@ -6,7 +6,8 @@
 #include "tool.h"
 #include "GA.h"
 
-int DUP, ITERS, POPULATION, ELITES, CELLS, RGCS, EPOCHS;
+int DUP, ITERS, POPULATION, ELITES, CELLS, RGCS, EPOCHS,
+    TEST_SIZE, TRAIN_SIZE;
 double T, TAU, DT, ETA, NOISE;
 
 void read_param()
@@ -18,7 +19,8 @@ void read_param()
     {
         f >> aux >> DUP >> ITERS >> aux >> POPULATION >> aux >> ELITES
           >> aux >> T >> aux >> TAU >> aux >> DT >> aux >> ETA >> aux >> EPOCHS
-          >> aux >> CELLS >> aux >> RGCS >> NOISE;
+          >> aux >> CELLS >> aux >> RGCS
+          >> aux >> NOISE >> aux >> TRAIN_SIZE >> aux >> TEST_SIZE;
 
         // cout << ITERS << " " << POPULATION << " " << ELITES << " "
         //      << T << " " << TAU << " " << DT << " " << CELLS << " " << RGCS << std::endl;
