@@ -191,7 +191,7 @@ void GA::mutation()
 void GA::run(const MatrixXd &x, const MatrixXd &y, const int tid = 0)
 {
     // Open a log
-    std::ofstream f("results/log.txt");
+    std::ofstream f("results/log" + std::to_string(tid) + ".txt");
 
     for (int i = 0; i < ITERS; i++)
     {
