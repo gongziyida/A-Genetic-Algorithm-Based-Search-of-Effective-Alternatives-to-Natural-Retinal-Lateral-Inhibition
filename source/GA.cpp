@@ -195,8 +195,7 @@ void GA::run(const MatrixXd &x, const MatrixXd &y, const int tid = 0)
 
     for (int i = 0; i < ITERS; i++)
     {
-        std::cout << "\n[" << tid << "]" << i + 1;
-        std::cout.flush();
+        std::cout << "[" << tid << "]" << i + 1 << std::endl;
 
         for (int j = 0; j < POPULATION; j++)
         {
