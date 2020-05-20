@@ -2,10 +2,14 @@
 #define RETINA_H
 
 #include <iostream>
+#include <bits/stdc++.h>
 #include <Eigen/Dense>
 using Eigen::MatrixXd;
 
 #define MAX_TYPES 10
+typedef std::bitset<32> binvec;
+
+extern int LOSS, AUC, N_SYNAPSES;
 
 struct Genome
 {
@@ -14,9 +18,9 @@ struct Genome
 	// Number of cells for each type
 	int n_cell[MAX_TYPES];
 	// Binary axon descriptors of interneuron types
-    int axon[MAX_TYPES];
+    binvec axon[MAX_TYPES];
 	// Binary dendrite descriptors of interneuron types
-    int dendrite[MAX_TYPES];
+    binvec dendrite[MAX_TYPES];
 	// Polarities of interneuron types
     double polarity[MAX_TYPES];
     // decay = exp(-((dist - beta) / phi)^2)
@@ -27,7 +31,8 @@ struct Genome
     double intvl[MAX_TYPES];
 
     int n_synapses;
-    double cost; // Fitness cost, the larger the worse
+    Eigen::Matrix<double, 3, 1> costs; // Fitness cost, the larger the worse
+	double total_cost;
 
 	Genome();
 	void organize();

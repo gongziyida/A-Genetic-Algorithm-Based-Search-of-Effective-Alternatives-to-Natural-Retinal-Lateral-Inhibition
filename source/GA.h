@@ -8,7 +8,7 @@ class GA
 {
 public:
     GA(Genome *g, Retina *r);
-    void run(const MatrixXd &x, const MatrixXd &y);
+    void run(const MatrixXd &x, const MatrixXd &y, const int tid);
 
 private:
     int *p1, *p2;

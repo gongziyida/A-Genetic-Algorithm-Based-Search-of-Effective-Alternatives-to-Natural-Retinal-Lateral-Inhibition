@@ -1,50 +1,56 @@
 #include <iostream>
 #include <random>
+#include <cmath>
 #include <Eigen/Dense>
 #include "tool.h"
 #define S1 0
 #define T1 1
 #define S2 2
 #define T2 3
+
+#define logit(x) (log(x / (1.0 - x)))
+#define sigmoid(x) (1.0 / (1.0 + exp(-x)))
+#define minmax(x, lo, hi) ((x - lo) / (hi - lo))
+#define antiminmax(x, lo, hi) (x * (hi - lo) + lo)
+
 using Eigen::MatrixXd;
 
-void normal(double &v, const double w, const double lo, const double hi)
+int THREADS, ITERS, POPULATION, ELITES, CELLS, RGCS, EPOCHS,
+    TEST_SIZE, TRAIN_SIZE;
+double T, TAU, DT, ETA, NOISE;
+Eigen::Matrix<double, 3, 1> W_COST;
+
+
+void logitnormal(double &v, const double w, const double lo, const double hi)
 {
 	static std::random_device rd;
 	static std::mt19937 gen(rd());
-	static std::normal_distribution<> dis(0, 1);
+	static std::normal_distribution<> dis(0.0, 1.0);
 
-	v += dis(gen) * w;
-
-	if (v > hi) v = hi;
-	else if (v < lo) v = lo;
+	v = minmax(v, lo, hi);
+	v = sigmoid(logit(v) + dis(gen) * w);
+	v = antiminmax(v, lo, hi);
 }
 
 void uniform(int &v, const double lo, const double hi)
 {
 	static std::random_device rd;
 	static std::mt19937 gen(rd());
-	static std::uniform_int_distribution<> dis(0, 1);
+	static std::uniform_real_distribution<> dis(0.0, 1.0);
 
-	v = (int)std::round(dis(gen) * (hi - lo) + lo);
+	v = (int)std::round(antiminmax(dis(gen), lo, hi));
+	if (v == hi) v--;
 }
 
 void generate(MatrixXd &signals, MatrixXd &st, const int n,
               const int num_sigs)
 {
-    if (num_sigs != 1 && num_sigs != 2)
-    {
-        throw std::invalid_argument("only 1 or 2 is acceptable");
-    }
-
-    int i;
-
     st = MatrixXd::Zero(n, num_sigs * 2);
-    signals = MatrixXd::Zero(n, CELLS + 1);
+    signals = MatrixXd::Zero(n, CELLS);
     MatrixXd buffer = MatrixXd::Random(n, CELLS) * NOISE;
     double filter[7] = {0.065, 0.12, 0.175, 0.2, 0.175, 0.12, 0.065};
 
-    for (i = 0; i < n; i++)
+    for (int i = 0; i < n; i++)
     {
         // Randomly create two rectangles
         int s1, t1;
@@ -56,7 +62,7 @@ void generate(MatrixXd &signals, MatrixXd &st, const int n,
         st(i, S1) = (double)s1 / CELLS;
         st(i, T1) = (double)t1 / CELLS;
 
-        if (num_sigs == 2)
+        if (num_sigs == 2) // Treated as 1 if not 1 or 2
         {
             int s2, t2;
 			uniform(s2, s1, CELLS - 4);
@@ -86,51 +92,62 @@ void generate(MatrixXd &signals, MatrixXd &st, const int n,
         // Normalize
         signals.row(i) = (signals.row(i).array() - mini) / (maxi - mini);
     }
-    signals.col(CELLS).array() = 1;
 }
 
 double nn(const MatrixXd &x, const MatrixXd &y, MatrixXd &wih, MatrixXd &who,
           double &hbias, MatrixXd &yhat, bool backprop = false)
 {
-    int n = x.rows(), h_features = wih.cols();
+    int n = x.rows(), in_features = x.cols(),
+        h_features = wih.cols(), out_features = y.cols();
 
-    MatrixXd h = x * wih;
+    MatrixXd h(n, h_features);
+    h.noalias() = x * wih;
 
-    MatrixXd mask = (h.array() >= 0).cast<double>(); // ReLU mask
+    MatrixXd mask(n, h_features);
+    mask.noalias() = (h.array() >= 0).cast<double>().matrix(); // ReLU mask
     h = mask.array() * h.array();
 
-    MatrixXd o = (h * who).array() + hbias;
+    MatrixXd o(n, out_features);
+    o.noalias() = ((h * who).array() + hbias).matrix();
 
-    yhat = (1 / (1 + exp(-o.array())));
+    yhat.noalias() = (1 / (1 + exp(-o.array()))).matrix();
 
-    MatrixXd res = yhat - y;
+    MatrixXd res(n, out_features);
+    res.noalias() = yhat - y;
 
     if (backprop)
     {
-        MatrixXd delta = yhat.array() * (1 - yhat.array()) * res.array() / n / 4;
-        MatrixXd drelu = MatrixXd::Identity(h_features, h_features);
+        MatrixXd delta(n, out_features);
+        delta.noalias() = (yhat.array() * (1 - yhat.array())
+                           * res.array() / n / 4).matrix();
+
+        MatrixXd drelu(h_features, h_features);
+        drelu.noalias() = MatrixXd::Identity(h_features, h_features);
 
         double dhbias = delta.sum();
-        MatrixXd dwho = MatrixXd::Zero(who.rows(), who.cols());
-        MatrixXd dwih = MatrixXd::Zero(wih.rows(), wih.cols());
+        MatrixXd dwih(in_features, h_features);
+        dwih.noalias() = MatrixXd::Zero(in_features, h_features);
+        MatrixXd dwho(h_features, out_features);
+        dwho.noalias() = MatrixXd::Zero(h_features, out_features);
 
         for (int i = 0; i < n; i++)
         {
             for (int j = 0; j < h_features; j++) drelu(j, j) = mask(i, j);
 
-            dwho += h.row(i).transpose() * delta.row(i);
-            dwih += x.row(i).transpose() * delta.row(i) * who.transpose() * drelu;
+            dwho.noalias() += h.row(i).transpose() * delta.row(i);
+            dwih.noalias() += x.row(i).transpose() * delta.row(i)
+                              * who.transpose() * drelu;
         }
 
-        who -= ETA * dwho;
+        who.noalias() -= ETA * dwho;
         hbias -= ETA * dhbias;
-        wih -= ETA * dwih;
+        wih.noalias() -= ETA * dwih;
     }
 
     return res.array().pow(2).sum() / n / y.cols(); // MSE
 }
 
-double model(const MatrixXd &x, const MatrixXd &y)
+double model(double *auc, const MatrixXd &x, const MatrixXd &y)
 {
     int in_features = x.cols();
     int h_features = in_features / 2;
@@ -144,10 +161,17 @@ double model(const MatrixXd &x, const MatrixXd &y)
     MatrixXd test_y = y.bottomRows(TEST_SIZE);
 
     MatrixXd yhat;
+    double minimum = INT_MAX; // for fiding the area under the curve
+
     for (int i = 0; i < EPOCHS; i++)
     {
-        std::cout << i << " "
-				  << nn(train_x, train_y, wih, who, hbias, yhat, true) << std::endl;
+        double loss = nn(train_x, train_y, wih, who, hbias, yhat, true);
+        if (auc != NULL)
+        {
+            *auc += loss;
+            if (minimum > loss) minimum = loss;
+            if (i == EPOCHS - 1) *auc -= EPOCHS * minimum; // normalize
+        }
     }
 
     return nn(test_x, test_y, wih, who, hbias, yhat);

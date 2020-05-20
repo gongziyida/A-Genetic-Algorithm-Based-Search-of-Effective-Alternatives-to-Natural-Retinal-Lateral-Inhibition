@@ -1,8 +1,8 @@
-CFLAGS	= -g 
+CFLAGS	= -std=c++11 -march=native -fopenmp -Wno-unused-result -Wall -Werror -Wextra
 
-OBJS	= tool.o Retina.o GA.o
+OBJS	= tool.o Retina.o GA.o main.o
 
-# OBJSD	= $(addprefix .obj/, $(OBJS))
+OBJSD	= $(addprefix .obj/, $(OBJS))
 
 DEPS 	= tool.h Retina.h GA.h
 
@@ -11,9 +11,14 @@ DEPS 	= tool.h Retina.h GA.h
 	@ mkdir -p .obj
 	g++ $(CFLAGS) -c -o $@ $<
 
-Simulation: .obj/$(OBJS) $(DEPS)
-	g++ $(CFLAGS) .obj/$(OBJS) -o $@ 
+Simulation: $(OBJSD) $(DEPS)
+	g++ $(CFLAGS) $(OBJSD) -o $@ 
 	
+debug: CFLAGS += -g
+debug: Simulation
+
+release: CFLAGS += -O3
+release: Simulation
 
 clean:
 	rm -rf .obj/ Simulation
