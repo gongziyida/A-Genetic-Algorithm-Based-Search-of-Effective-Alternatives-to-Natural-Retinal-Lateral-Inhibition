@@ -30,8 +30,6 @@ void read_param()
 
 void write(Genome *g, Retina *r, const int tid)
 {
-    (void) std::system("mkdir -p results/");
-
     for (int i = 0; i < ELITES; i++)
     {
         std::string nameg = "results/" + std::to_string(tid) + "_"
@@ -69,7 +67,8 @@ int main()
 {
     read_param();
 
-    // TODO: Multi-thread
+    (void) std::system("mkdir -p results/");
+
     std::thread ths[THREADS];
     for (int i = 0; i < THREADS; i++) ths[i] = std::thread(fork, i);
     for (int i = 0; i < THREADS; i++) ths[i].join();
