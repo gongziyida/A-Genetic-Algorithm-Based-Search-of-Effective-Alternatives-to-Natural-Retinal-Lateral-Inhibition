@@ -209,7 +209,7 @@ void GA::run(const MatrixXd &x, const MatrixXd &y, const int tid = 0)
         qsort(g, POPULATION, sizeof(Genome), comparator);
 
         // Output stats
-        for (int j = 0; j < POPULATION; j++) f << g[j].total_cost << "," << g[j].costs;
+        for (int j = 0; j < POPULATION; j++) f << g[j].total_cost << " " << g[j].costs << "\n";
         f << "\n";
 
         selection();
@@ -219,7 +219,7 @@ void GA::run(const MatrixXd &x, const MatrixXd &y, const int tid = 0)
 
     // eval and sort the final retinas
     eval(x, y);
-    qsort(g, POPULATION, sizeof(Retina), comparator);
+    qsort(g, POPULATION, sizeof(Genome), comparator);
 
 	f.close();
 

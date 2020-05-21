@@ -28,6 +28,15 @@ void read_param()
     } else std::cout << "PARAM not found." << std::endl;
 }
 
+void test_reading()
+{
+    std::cout << THREADS << "\n" << ITERS << "\n" << POPULATION << "\n"
+              << ELITES << "\n" << CELLS << "\n" << RGCS << "\n"
+              << EPOCHS << "\n" << TEST_SIZE << "\n" << TRAIN_SIZE << "\n"
+              << T << "\n" << TAU << "\n" << DT << "\n" << ETA << "\n" << NOISE
+              << std::endl;
+}
+
 void write(Genome *g, Retina *r, const int tid)
 {
     for (int i = 0; i < ELITES; i++)
@@ -66,6 +75,7 @@ void fork(int tid)
 int main()
 {
     read_param();
+    // test_reading();
 
     (void) std::system("mkdir -p results/");
 

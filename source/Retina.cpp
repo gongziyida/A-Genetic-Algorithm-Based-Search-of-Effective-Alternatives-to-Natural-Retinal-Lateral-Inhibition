@@ -209,16 +209,17 @@ std::ostream & operator<<(std::ostream &os, const Genome &g)
 {
     os << g.n_types << "\n";
 
-    os << "n_cell,axon,dendrite,polarity,phi,beta,intervals,costs,total_cost\n";
+    os << "n_cell axon dendrite polarity phi beta intervals "
+          "loss auc n_synapses total_cost\n";
 
     for (int i = 0; i < g.n_types; i++)
     {
-        os << g.n_cell[i] << ","
-           << g.axon[i] << "," << g.dendrite[i] << ","
-           << g.polarity[i] << ","
-           << g.phi[i] << "," << g.beta[i] << ","
-           << g.intvl[i] << "," << ","
-           << g.costs << "," << g.total_cost << "\n";
+        os << g.n_cell[i] << " "
+           << g.axon[i] << " " << g.dendrite[i] << " "
+           << g.polarity[i] << " "
+           << g.phi[i] << " " << g.beta[i] << " "
+           << g.intvl[i] << " "
+           << g.costs << " " << g.total_cost << "\n";
     }
     return os;
 }

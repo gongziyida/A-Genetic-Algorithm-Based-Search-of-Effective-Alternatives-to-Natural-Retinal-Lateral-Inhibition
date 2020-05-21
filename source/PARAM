@@ -1,5 +1,5 @@
-duplications 3
-max_iterations 10
+threads 3
+max_iterations 2
 population 50
 num_elites 10
 sim_time 4
@@ -7,8 +7,8 @@ tau 2
 dt 0.2
 eta 0.01
 epochs 10
-max_num_cells 100
-num_rGCs 20
+max_num_cells 30
+num_rGCs 2
 noise_level 0.1
 train_size 500
 test_size 100

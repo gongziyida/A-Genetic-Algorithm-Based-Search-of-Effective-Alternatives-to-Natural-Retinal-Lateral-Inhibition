@@ -11,6 +11,8 @@ typedef std::bitset<32> binvec;
 
 extern int LOSS, AUC, N_SYNAPSES;
 
+class Retina;
+
 struct Genome
 {
 	// Number of types of neurons
@@ -31,8 +33,10 @@ struct Genome
     double intvl[MAX_TYPES];
 
     int n_synapses;
-    Eigen::Matrix<double, 3, 1> costs; // Fitness cost, the larger the worse
+    Eigen::Matrix<double, 1, 3> costs; // Fitness cost, the larger the worse
 	double total_cost;
+
+	Retina *r;
 
 	Genome();
 	void organize();
