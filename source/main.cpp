@@ -2,6 +2,7 @@
 #include <fstream>
 #include <thread>
 #include <random>
+#define EIGEN_USE_MKL_ALL
 #include <Eigen/Dense>
 #include "Retina.h"
 #include "tool.h"
@@ -25,7 +26,11 @@ void read_param()
         f.close();
 
         if (W_COST.sum() != 1) std::invalid_argument("W_COST");
-    } else std::cout << "PARAM not found." << std::endl;
+    } else
+    {
+        std::cout << "PARAM not found." << std::endl;
+        std::exit(1);
+    }
 }
 
 void test_reading()
@@ -37,7 +42,7 @@ void test_reading()
               << std::endl;
 }
 
-void write(Genome *g, Retina *r, const int tid)
+void write(Genome *g, const int tid)
 {
     for (int i = 0; i < ELITES; i++)
     {
@@ -50,7 +55,7 @@ void write(Genome *g, Retina *r, const int tid)
         std::string namer = "results/" + std::to_string(tid) + "_"
                             + std::to_string(i) + "r.txt";
         std::ofstream fr(namer);
-        fr << r[i] << std::endl;
+        fr << *g[i].r << std::endl;
         fr.close();
     }
 }
@@ -69,7 +74,7 @@ void fork(int tid)
     GA sim = GA(g, r);
     sim.run(sigs, st, tid);
 
-    write(g, r, tid);
+    write(g, tid);
 }
 
 int main()
@@ -78,6 +83,7 @@ int main()
     // test_reading();
 
     (void) std::system("mkdir -p results/");
+    (void) std::system("cp PARAM results/");
 
     std::thread ths[THREADS];
     for (int i = 0; i < THREADS; i++) ths[i] = std::thread(fork, i);

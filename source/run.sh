@@ -1,19 +1,7 @@
-#! /bin/bash
-
-if [ ! -f PARAM ] ; then
-	echo "Configuration file 'PARAM' does not exist."
-	exit 0
-fi
-
-# Run the following if there is a linking error
 source /opt/intel/compilers_and_libraries_2019.5.281/linux/mkl/bin/mklvars.sh intel64
 
-make
+make release
 
-if [ ! -d results ] ; then
-	mkdir results
-fi
+./Simulation
 
-cp PARAM results/
-
-./GA
+python3 visualization.py results/ 2 0

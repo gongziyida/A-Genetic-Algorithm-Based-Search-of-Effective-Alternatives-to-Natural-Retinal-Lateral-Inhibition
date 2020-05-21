@@ -1,6 +1,7 @@
 #include <iostream>
 #include <random>
 #include <cmath>
+#define EIGEN_USE_MKL_ALL
 #include <Eigen/Dense>
 #include "tool.h"
 #define S1 0
@@ -147,7 +148,7 @@ double nn(const MatrixXd &x, const MatrixXd &y, MatrixXd &wih, MatrixXd &who,
     return res.array().pow(2).sum() / n / y.cols(); // MSE
 }
 
-double model(double *auc, const MatrixXd &x, const MatrixXd &y)
+double model(double *auc, const MatrixXd &x, const MatrixXd &y, std::string *disp)
 {
     int in_features = x.cols();
     int h_features = in_features / 2;
@@ -161,17 +162,19 @@ double model(double *auc, const MatrixXd &x, const MatrixXd &y)
     MatrixXd test_y = y.bottomRows(TEST_SIZE);
 
     MatrixXd yhat;
-    double minimum = INT_MAX; // for fiding the area under the curve
+    MatrixXd loss(1, EPOCHS);
 
     for (int i = 0; i < EPOCHS; i++)
+        loss(i) = nn(train_x, train_y, wih, who, hbias, yhat, true);
+
+    // normalized AUC
+    if (auc != NULL) *auc = loss.sum() - EPOCHS * loss.minCoeff();
+
+    if (disp != NULL)
     {
-        double loss = nn(train_x, train_y, wih, who, hbias, yhat, true);
-        if (auc != NULL)
-        {
-            *auc += loss;
-            if (minimum > loss) minimum = loss;
-            if (i == EPOCHS - 1) *auc -= EPOCHS * minimum; // normalize
-        }
+        std::stringstream ss;
+        ss << loss << "\n";
+        *disp += ss.str();
     }
 
     return nn(test_x, test_y, wih, who, hbias, yhat);

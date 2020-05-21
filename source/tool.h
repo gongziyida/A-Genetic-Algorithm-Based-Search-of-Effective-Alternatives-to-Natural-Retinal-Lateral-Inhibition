@@ -1,6 +1,7 @@
 #ifndef TOOL_H
 #define TOOL_H
 
+#define EIGEN_USE_MKL_ALL
 #include <Eigen/Dense>
 using Eigen::MatrixXd;
 
@@ -13,6 +14,6 @@ void logitnormal(double &v, const double w, const double lo, const double hi);
 void uniform(int &v, double lo, double hi);
 void generate(MatrixXd &signals, MatrixXd &st, const int n,
               const int num_sigs);
-double model(double *auc, const MatrixXd &x, const MatrixXd &y);
+double model(double *auc, const MatrixXd &x, const MatrixXd &y, std::string *disp);
 
 #endif

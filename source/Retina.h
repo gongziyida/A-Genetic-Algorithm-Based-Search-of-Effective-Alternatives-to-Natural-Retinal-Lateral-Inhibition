@@ -1,6 +1,7 @@
 #ifndef RETINA_H
 #define RETINA_H
 
+#define EIGEN_USE_MKL_ALL
 #include <iostream>
 #include <bits/stdc++.h>
 #include <Eigen/Dense>

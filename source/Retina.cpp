@@ -1,5 +1,6 @@
 #include <iostream>
 #include <cmath>
+#define EIGEN_USE_MKL_ALL
 #include <Eigen/Dense>
 #include "Retina.h"
 #include "tool.h"
@@ -9,6 +10,7 @@ int LOSS = 0, AUC = 1, N_SYNAPSES = 2;
 
 void Retina::init(Genome &g)
 {
+    g.r = this; // Link
     n = g.n_types;
 
     for (int i = 0; i < n; i++) n_cell[i] = g.n_cell[i];

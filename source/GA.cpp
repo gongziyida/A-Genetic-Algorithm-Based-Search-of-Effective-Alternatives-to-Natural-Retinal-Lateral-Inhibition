@@ -2,6 +2,7 @@
 #include <fstream>
 #include <algorithm>
 #include <random>
+#define EIGEN_USE_MKL_ALL
 #include <Eigen/Dense>
 #include "Retina.h"
 #include "tool.h"
@@ -17,18 +18,26 @@ GA::GA(Genome *genomes, Retina *retinas)
     p2 = new int[POPULATION];
 }
 
-void GA::eval(const MatrixXd &x, const MatrixXd &y)
+void GA::eval(const MatrixXd &x, const MatrixXd &y, bool disp = false)
 {
+    std::string s = "";
+    std::string *sp = disp? &s : NULL;
+
     for (int i = 0; i < POPULATION; i++)
     {
         MatrixXd retina_out;
-        r[i].react(x, retina_out);
+        g[i].r->react(x, retina_out);
 
         double auc = 0;
-        g[i].costs(LOSS) = model(&auc, retina_out, y);
+
+        if (i >= 3) sp = NULL;
+
+        g[i].costs(LOSS) = model(&auc, retina_out, y, sp);
         g[i].costs(AUC) = auc;
         g[i].total_cost = W_COST.dot(g[i].costs);
     }
+
+    if (disp) std::cout << s << std::endl;
 }
 
 
@@ -209,7 +218,8 @@ void GA::run(const MatrixXd &x, const MatrixXd &y, const int tid = 0)
         qsort(g, POPULATION, sizeof(Genome), comparator);
 
         // Output stats
-        for (int j = 0; j < POPULATION; j++) f << g[j].total_cost << " " << g[j].costs << "\n";
+        for (int j = 0; j < POPULATION; j++)
+            f << g[j].total_cost << " " << g[j].costs << "\n";
         f << "\n";
 
         selection();
@@ -218,7 +228,7 @@ void GA::run(const MatrixXd &x, const MatrixXd &y, const int tid = 0)
 	}
 
     // eval and sort the final retinas
-    eval(x, y);
+    eval(x, y, true);
     qsort(g, POPULATION, sizeof(Genome), comparator);
 
 	f.close();
