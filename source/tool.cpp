@@ -18,7 +18,7 @@ using Eigen::MatrixXd;
 
 int THREADS, ITERS, POPULATION, ELITES, CELLS, RGCS, EPOCHS,
     TEST_SIZE, TRAIN_SIZE;
-double T, TAU, DT, ETA, NOISE;
+double T, TAU, DT, ETA, NOISE, TH;
 Eigen::Matrix<double, 3, 1> W_COST;
 
 
@@ -43,20 +43,21 @@ void uniform(int &v, const double lo, const double hi)
 	if (v == hi) v--;
 }
 
-void generate(MatrixXd &signals, MatrixXd &st, const int n,
-              const int num_sigs)
+void generate(MatrixXd &signals, MatrixXd &st, const int n, const int num_sigs)
 {
     st = MatrixXd::Zero(n, num_sigs * 2);
     signals = MatrixXd::Zero(n, CELLS);
     MatrixXd buffer = MatrixXd::Random(n, CELLS) * NOISE;
     double filter[7] = {0.065, 0.12, 0.175, 0.2, 0.175, 0.12, 0.065};
 
+    int t1max = (num_sigs == 1)? CELLS - 2 : CELLS * 0.8;
+
     for (int i = 0; i < n; i++)
     {
         // Randomly create two rectangles
         int s1, t1;
 		uniform(s1, 2, CELLS * 0.7 - 2);
-        uniform(t1, s1 + 2, CELLS * 0.8);
+        uniform(t1, s1 + 2, t1max);
 
         buffer.block(i, s1, 1, t1 - s1).array() += 1;
 
@@ -93,10 +94,26 @@ void generate(MatrixXd &signals, MatrixXd &st, const int n,
         // Normalize
         signals.row(i) = (signals.row(i).array() - mini) / (maxi - mini);
     }
+
+    if (TH != 0)
+    {
+        MatrixXd labels = MatrixXd::Zero(n, num_sigs);
+        labels.col(0) = st.col(T1) - st.col(S1);
+
+        if (num_sigs == 2) labels.col(1) = st.col(T2) - st.col(S2);
+
+        st = (labels.array() >= TH).cast<double>();
+    }
+}
+
+double geq_prob(const MatrixXd &labels)
+{
+    return (labels.array() == 1).cast<double>().sum()
+            / (labels.cols() * labels.rows());
 }
 
 double nn(const MatrixXd &x, const MatrixXd &y, MatrixXd &wih, MatrixXd &who,
-          double &hbias, MatrixXd &yhat, bool backprop = false)
+          MatrixXd &hbias, MatrixXd &yhat, bool backprop = false)
 {
     int n = x.rows(), in_features = x.cols(),
         h_features = wih.cols(), out_features = y.cols();
@@ -109,7 +126,8 @@ double nn(const MatrixXd &x, const MatrixXd &y, MatrixXd &wih, MatrixXd &who,
     h = mask.array() * h.array();
 
     MatrixXd o(n, out_features);
-    o.noalias() = ((h * who).array() + hbias).matrix();
+    o.noalias() = (h * who).matrix();
+    for (int i = 0; i < n; i++) o.row(i) += hbias;
 
     yhat.noalias() = (1 / (1 + exp(-o.array()))).matrix();
 
@@ -119,33 +137,41 @@ double nn(const MatrixXd &x, const MatrixXd &y, MatrixXd &wih, MatrixXd &who,
     if (backprop)
     {
         MatrixXd delta(n, out_features);
-        delta.noalias() = (yhat.array() * (1 - yhat.array())
-                           * res.array() / n / 4).matrix();
+        delta.noalias() = res / n;
+        if (TH == 0)
+            delta.array() *= yhat.array() * (1 - yhat.array());
 
-        MatrixXd drelu(h_features, h_features);
-        drelu.noalias() = MatrixXd::Identity(h_features, h_features);
-
-        double dhbias = delta.sum();
-        MatrixXd dwih(in_features, h_features);
-        dwih.noalias() = MatrixXd::Zero(in_features, h_features);
         MatrixXd dwho(h_features, out_features);
-        dwho.noalias() = MatrixXd::Zero(h_features, out_features);
+        dwho.noalias() = h.transpose() * delta;
 
-        for (int i = 0; i < n; i++)
-        {
-            for (int j = 0; j < h_features; j++) drelu(j, j) = mask(i, j);
+        MatrixXd delta_who_relu(n, h_features);
+        delta_who_relu.noalias() = delta * who.transpose();
+        delta_who_relu = delta_who_relu.array() * mask.array();
 
-            dwho.noalias() += h.row(i).transpose() * delta.row(i);
-            dwih.noalias() += x.row(i).transpose() * delta.row(i)
-                              * who.transpose() * drelu;
-        }
+        MatrixXd dwih(in_features, h_features);
+        dwih.noalias() = x.transpose() * delta_who_relu;
+
+        MatrixXd dhbias(1, out_features);
+        dhbias.noalias() = delta.colwise().sum();
 
         who.noalias() -= ETA * dwho;
         hbias -= ETA * dhbias;
         wih.noalias() -= ETA * dwih;
     }
 
-    return res.array().pow(2).sum() / n / y.cols(); // MSE
+    if (TH == 0) // MSE
+        return res.array().pow(2).sum() / n / y.cols();
+    else // BinaryCE
+        return (-y.array() * log(yhat.array())
+                - (1 - y.array()) * log(1 - yhat.array())).sum() / n;
+}
+
+inline double accuracy(const MatrixXd &yhat, const MatrixXd &y)
+{
+    int n = y.rows();
+    MatrixXd yhat_bin(n, 1);
+    yhat_bin.noalias() = (yhat.array() > 0.5).cast<double>().matrix();
+    return (yhat_bin.array() == y.array()).cast<double>().sum() / n;
 }
 
 double model(double *auc, const MatrixXd &x, const MatrixXd &y, std::string *disp)
@@ -154,28 +180,43 @@ double model(double *auc, const MatrixXd &x, const MatrixXd &y, std::string *dis
     int h_features = in_features / 2;
     MatrixXd wih = MatrixXd::Random(in_features, h_features);
     MatrixXd who = MatrixXd::Random(h_features, y.cols());
-    double hbias = (double)rand() / RAND_MAX;
+    MatrixXd hbias = MatrixXd::Random(1, y.cols());
 
     MatrixXd train_x = x.topRows(TRAIN_SIZE);
     MatrixXd train_y = y.topRows(TRAIN_SIZE);
     MatrixXd test_x = x.bottomRows(TEST_SIZE);
     MatrixXd test_y = y.bottomRows(TEST_SIZE);
 
-    MatrixXd yhat;
+    MatrixXd yhat(y.rows(), y.cols());
     MatrixXd loss(1, EPOCHS);
+    MatrixXd acc(1, EPOCHS);
 
     for (int i = 0; i < EPOCHS; i++)
+    {
         loss(i) = nn(train_x, train_y, wih, who, hbias, yhat, true);
+        if (TH != 0)
+            acc(i) = accuracy(yhat, train_y);
+    }
 
-    // normalized AUC
-    if (auc != NULL) *auc = loss.sum() - EPOCHS * loss.minCoeff();
+    // AUC
+    if (auc != NULL) *auc = loss.sum() / EPOCHS;
 
     if (disp != NULL)
     {
-        std::stringstream ss;
-        ss << loss << "\n";
-        *disp += ss.str();
+        std::stringstream ss_loss;
+        ss_loss << "Loss: \n" << loss << "\n";
+        *disp += ss_loss.str();
+
+        if (TH != 0)
+        {
+            std::stringstream ss_acc;
+            ss_acc << "Accuracy: \n" << acc << "\n";
+            *disp += ss_acc.str();
+        }
     }
 
-    return nn(test_x, test_y, wih, who, hbias, yhat);
+    double ret = nn(test_x, test_y, wih, who, hbias, yhat);
+    if (TH != 0)
+        ret = accuracy(yhat, test_y);
+    return ret;
 }

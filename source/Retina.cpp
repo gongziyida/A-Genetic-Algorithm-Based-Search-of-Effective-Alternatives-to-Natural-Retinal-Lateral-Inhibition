@@ -10,7 +10,6 @@ int LOSS = 0, AUC = 1, N_SYNAPSES = 2;
 
 void Retina::init(Genome &g)
 {
-    g.r = this; // Link
     n = g.n_types;
 
     for (int i = 0; i < n; i++) n_cell[i] = g.n_cell[i];
@@ -20,7 +19,8 @@ void Retina::init(Genome &g)
     { // ganglion cells do not project
         for (int j = 0; j < n; j++)
         {
-            if (i == j) continue;
+            // internal connection only allowed at i != 0 or n-1
+            if (i == j && (i == 0 || i == n - 1)) continue;
 
             int ni = n_cell[i];
             int nj = n_cell[j];
@@ -58,7 +58,7 @@ void Retina::init(Genome &g)
                 }
             }
 
-            // logitnormalize and thresholding
+            // normalize and thresholding
             for (int p = 0; p < ni; p++)
             {
                 for (int q = 0; q < nj; q++)
@@ -99,22 +99,18 @@ void Retina::react(const MatrixXd &in, MatrixXd &out)
     {
         for (int i = 0; i < n; i++)
         {
-            if (n_cell[i] == 0) continue;
-
             // V_i' = -V_i (+ I_ext)
             s_new[i].noalias() = -s_old[i];
             if (i == 0) s_new[i].noalias() += in;
 
             for (int j = 0; j < n - 1; j++)
             { // Ganglion cells do not project back
-                if (j == i) continue;
+                if (j == i && (i == 0 || i == n - 1)) continue;
 
                 // ganglion cells only get input from receptors
                 if (i == n - 1 && j != 0) continue;
 
-                if (n_cell[j] == 0) continue;
-
-                MatrixXd buffer;
+                MatrixXd buffer(s_old[j].rows(), s_old[j].cols());
                 activation(s_old[j], buffer);
                 s_new[i].noalias() += buffer * w[j][i];
             }
@@ -129,7 +125,13 @@ void Retina::react(const MatrixXd &in, MatrixXd &out)
         }
     }
 
+    // std::cout << s_old[n-1] << "\n********\n" << std::endl;
     activation(s_old[n-1], out);
+
+	MatrixXd o_max = out.rowwise().maxCoeff();
+	MatrixXd o_min = out.rowwise().minCoeff();
+	for (int i = 0; i < out.cols(); i++)
+        out.col(i) = (out.col(i) - o_min).array() / (o_max - o_min).array();
 }
 
 std::ostream& operator<<(std::ostream &os, const Retina &r)
@@ -138,7 +140,7 @@ std::ostream& operator<<(std::ostream &os, const Retina &r)
     {
         for (int j = 0; j < r.n; j++)
         {
-            if (i == j) continue;
+            if (i == j && (i == 0 || i == r.n - 1)) continue;
             if (j == r.n - 1 && i != 0) continue;
 
             os << "# " << i << "->" << j << " "
@@ -167,11 +169,11 @@ Genome::Genome()
 
         polarity[i] = beta[i] = 0;
 
-        logitnormal(polarity[i], 0.5, -1, 1);
+        logitnormal(polarity[i], 1.5, -1, 1);
 
-        logitnormal((phi[i] = 5), 0.5, 0.1, 10);
+        logitnormal((phi[i] = 5), 3, 0.1, 10);
 
-        logitnormal(beta[i], 0.5, -1, 1);
+        logitnormal(beta[i], 1.5, -1, 1);
     }
 
     organize();

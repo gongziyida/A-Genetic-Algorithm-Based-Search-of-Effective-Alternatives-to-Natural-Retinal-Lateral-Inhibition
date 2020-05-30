@@ -20,12 +20,12 @@ void read_param()
         f >> aux >> THREADS >> aux >> ITERS >> aux >> POPULATION >> aux >> ELITES
           >> aux >> T >> aux >> TAU >> aux >> DT >> aux >> ETA >> aux >> EPOCHS
           >> aux >> CELLS >> aux >> RGCS
-          >> aux >> NOISE >> aux >> TRAIN_SIZE >> aux >> TEST_SIZE
-          >> aux >> W_COST(LOSS) >> aux >> W_COST(AUC) >> aux >> W_COST(N_SYNAPSES);
+          >> aux >> NOISE >> aux >> TRAIN_SIZE >> aux >> TEST_SIZE >> aux >> TH
+          >> aux >> W_COST(AUC) >> aux >> W_COST(N_SYNAPSES);
 
         f.close();
 
-        if (W_COST.sum() != 1) std::invalid_argument("W_COST");
+        W_COST(LOSS) = 1 - W_COST(AUC) - W_COST(N_SYNAPSES);
     } else
     {
         std::cout << "PARAM not found." << std::endl;
@@ -39,7 +39,7 @@ void test_reading()
               << ELITES << "\n" << CELLS << "\n" << RGCS << "\n"
               << EPOCHS << "\n" << TEST_SIZE << "\n" << TRAIN_SIZE << "\n"
               << T << "\n" << TAU << "\n" << DT << "\n" << ETA << "\n" << NOISE
-              << std::endl;
+              << "\n" << TH << std::endl;
 }
 
 void write(Genome *g, const int tid)
@@ -65,6 +65,7 @@ void fork(int tid)
     MatrixXd sigs, st;
 
     generate(sigs, st, TRAIN_SIZE + TEST_SIZE, 1);
+    if (TH != 0) std::cout << geq_prob(st) << std::endl;
 
     Genome g[POPULATION];
     Retina r[POPULATION];
@@ -77,13 +78,16 @@ void fork(int tid)
     write(g, tid);
 }
 
-int main()
+int main(int argc, char *argv[])
 {
     read_param();
     // test_reading();
 
-    (void) std::system("mkdir -p results/");
-    (void) std::system("cp PARAM results/");
+    std::string folder = (argc == 2)? argv[1] : "results";
+
+    (void) std::system(("mkdir -p " + folder).c_str());
+    (void) std::system(("rm " + folder + "/*").c_str());
+    (void) std::system(("cp PARAM " + folder).c_str());
 
     std::thread ths[THREADS];
     for (int i = 0; i < THREADS; i++) ths[i] = std::thread(fork, i);

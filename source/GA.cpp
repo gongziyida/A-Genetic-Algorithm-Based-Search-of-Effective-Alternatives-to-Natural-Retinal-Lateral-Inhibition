@@ -13,12 +13,14 @@ GA::GA(Genome *genomes, Retina *retinas)
 {
     g = genomes;
     r = retinas;
+    for (int i = 0; i < POPULATION; i++) g[i].r = &r[i];
+
     children = new Genome[POPULATION - ELITES];
     p1 = new int[POPULATION];
     p2 = new int[POPULATION];
 }
 
-void GA::eval(const MatrixXd &x, const MatrixXd &y, bool disp = false)
+void GA::eval(const MatrixXd &x, const MatrixXd &y, bool disp)
 {
     std::string s = "";
     std::string *sp = disp? &s : NULL;
@@ -32,7 +34,9 @@ void GA::eval(const MatrixXd &x, const MatrixXd &y, bool disp = false)
 
         if (i >= 3) sp = NULL;
 
-        g[i].costs(LOSS) = model(&auc, retina_out, y, sp);
+        double train_out = model(&auc, retina_out, y, sp);
+
+        g[i].costs(LOSS) = (TH == 0)? train_out : (1 - train_out);
         g[i].costs(AUC) = auc;
         g[i].total_cost = W_COST.dot(g[i].costs);
     }
@@ -168,13 +172,13 @@ void GA::mutation()
         for (int j = 0; j < n; j++)
         {
             // Mutate polarity, in very small amount per time
-            logitnormal(g[i].polarity[j], 0.005, -1, 1);
+            logitnormal(g[i].polarity[j], 0.3, -1, 1);
 
             // Mutate phi, in very small amount per time
-            logitnormal(g[i].phi[j], 0.01, 0.1, 10);
+            logitnormal(g[i].phi[j], 1, 0.1, 10);
 
             // Mutate beta, in very small amount per time
-            logitnormal(g[i].beta[j], 0.1, -1, 1);
+            logitnormal(g[i].beta[j], 0.3, -1, 1);
 
             // Skip receptog and ganglion cells
             if (j == 0) continue;
@@ -209,7 +213,7 @@ void GA::run(const MatrixXd &x, const MatrixXd &y, const int tid = 0)
         for (int j = 0; j < POPULATION; j++)
         {
             g[j].organize();
-            r[j].init(g[j]);
+            g[j].r->init(g[j]);
         }
 
         eval(x, y);
@@ -228,7 +232,7 @@ void GA::run(const MatrixXd &x, const MatrixXd &y, const int tid = 0)
 	}
 
     // eval and sort the final retinas
-    eval(x, y, true);
+    eval(x, y);
     qsort(g, POPULATION, sizeof(Genome), comparator);
 
 	f.close();

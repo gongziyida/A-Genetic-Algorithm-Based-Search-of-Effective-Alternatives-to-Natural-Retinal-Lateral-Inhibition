@@ -16,7 +16,7 @@ private:
     Genome *g, *children;
     Retina *r;
 
-    void eval(const MatrixXd &x, const MatrixXd &y, bool disp);
+    void eval(const MatrixXd &x, const MatrixXd &y, bool disp = false);
     int select_p(const int cur, const int p_);
     void selection();
     void crossover();
