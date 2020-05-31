@@ -7,6 +7,9 @@
 #include "Retina.h"
 #include "tool.h"
 #include "GA.h"
+
+#define bernoulli(p1, p2) ((rand() % 100 < 50)? p1 : p2)
+
 using Eigen::MatrixXd;
 
 GA::GA(Genome *genomes, Retina *retinas)
@@ -36,7 +39,7 @@ void GA::eval(const MatrixXd &x, const MatrixXd &y, bool disp)
 
         double train_out = model(&auc, retina_out, y, sp);
 
-        g[i].costs(LOSS) = (TH == 0)? train_out : (1 - train_out);
+        g[i].costs(LOSS) = (DICISION_BOUNDARY == 0)? train_out : (1 - train_out);
         g[i].costs(AUC) = auc;
         g[i].total_cost = W_COST.dot(g[i].costs);
     }
@@ -97,19 +100,17 @@ void GA::selection()
 
 void GA::crossover()
 {
+    // Crossover, results stored in buffer
     for (int i = 0; i < POPULATION - ELITES; i++)
     {
+        if (rand() % 100 < XRATE) continue; // crossover is binomial
+
+        int n = g[bernoulli(p1[i], p2[i])].n_types;
+
         int p, q;
-
-        if (rand() % 100 < 50)  p = p1[i];
-        else                    p = p2[i];
-
-        int n = g[p].n_types;
-
         for (int j = 0; j < n; j++)
         {
-            if (rand() % 100 < 50)  p = p1[i];
-            else                    p = p2[i];
+            p = bernoulli(p1[i], p2[i]);
 
             if (j == 0)          q = 0; // Receptor cells
             else if (j == n - 1) q = g[p].n_types - 1; // Ganglion cells
@@ -132,20 +133,24 @@ void GA::crossover()
             children[i].beta[j] = g[p].beta[q];
         }
         children[i].n_types = n;
+
+        children[i].th = g[bernoulli(p1[i], p2[i])].th;
     }
 
-    for (int i = 0; i < POPULATION - ELITES; i++)
+    // Copy back
+    for (int i = 0, k = 0; i < POPULATION - ELITES; i++, k++)
     {
-        g[ELITES + i].n_types = children[i].n_types;
+        g[k].n_types = children[i].n_types;
+        g[k].th = children[i].th;
 
         for (int j = 0; j < MAX_TYPES; j++)
         {
-            g[ELITES + i].axon[j] = children[i].axon[j];
-            g[ELITES + i].dendrite[j] = children[i].dendrite[j];
-            g[ELITES + i].polarity[j] = children[i].polarity[j];
-            g[ELITES + i].n_cell[j] = children[i].n_cell[j];
-            g[ELITES + i].phi[j] = children[i].phi[j];
-            g[ELITES + i].beta[j] = children[i].beta[j];
+            g[k].axon[j] = children[i].axon[j];
+            g[k].dendrite[j] = children[i].dendrite[j];
+            g[k].polarity[j] = children[i].polarity[j];
+            g[k].n_cell[j] = children[i].n_cell[j];
+            g[k].phi[j] = children[i].phi[j];
+            g[k].beta[j] = children[i].beta[j];
         }
     }
 }
@@ -194,6 +199,9 @@ void GA::mutation()
                 if (--g[i].n_cell[j] < min_cell) g[i].n_cell[j] = min_cell;
             }
         }
+
+        // Mutate ganglion firing threshold, in very small amount per time
+        logitnormal(g[i].th, 0.15, 0.1, 1);
 
         // Force the receptog to have excitatory projections
         // if (g[i].polarity[0] < 0)

@@ -12,15 +12,16 @@
 
 void read_param()
 {
-    char aux[20];
+    char aux[50];
 
     std::ifstream f("PARAM");
     if (f.is_open())
     {
         f >> aux >> THREADS >> aux >> ITERS >> aux >> POPULATION >> aux >> ELITES
-          >> aux >> T >> aux >> TAU >> aux >> DT >> aux >> ETA >> aux >> EPOCHS
+          >> aux >> T >> aux >> TAU >> aux >> ETA >> aux >> EPOCHS >> aux >> XRATE
           >> aux >> CELLS >> aux >> RGCS
-          >> aux >> NOISE >> aux >> TRAIN_SIZE >> aux >> TEST_SIZE >> aux >> TH
+          >> aux >> NOISE >> aux >> TRAIN_SIZE >> aux >> TEST_SIZE
+          >> aux >> DICISION_BOUNDARY >> aux >> INTERNAL_CONN
           >> aux >> W_COST(AUC) >> aux >> W_COST(N_SYNAPSES);
 
         f.close();
@@ -35,11 +36,13 @@ void read_param()
 
 void test_reading()
 {
+    std::string itncnn = (INTERNAL_CONN)? "true" : "false";
     std::cout << THREADS << "\n" << ITERS << "\n" << POPULATION << "\n"
-              << ELITES << "\n" << CELLS << "\n" << RGCS << "\n"
+              << ELITES << "\n" << CELLS << "\n" << RGCS << "\n" << XRATE << "\n"
               << EPOCHS << "\n" << TEST_SIZE << "\n" << TRAIN_SIZE << "\n"
-              << T << "\n" << TAU << "\n" << DT << "\n" << ETA << "\n" << NOISE
-              << "\n" << TH << std::endl;
+              << T << "\n" << TAU << "\n" << ETA << "\n" << NOISE
+              << "\n" << DICISION_BOUNDARY << "\n"
+              << itncnn << std::endl;
 }
 
 void write(Genome *g, const int tid)
@@ -65,7 +68,7 @@ void fork(int tid)
     MatrixXd sigs, st;
 
     generate(sigs, st, TRAIN_SIZE + TEST_SIZE, 1);
-    if (TH != 0) std::cout << geq_prob(st) << std::endl;
+    if (DICISION_BOUNDARY != 0) std::cout << geq_prob(st) << std::endl;
 
     Genome g[POPULATION];
     Retina r[POPULATION];

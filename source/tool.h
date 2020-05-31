@@ -6,8 +6,9 @@
 using Eigen::MatrixXd;
 
 extern int THREADS, ITERS, POPULATION, ELITES, CELLS, RGCS, EPOCHS,
-           TEST_SIZE, TRAIN_SIZE;
-extern double T, TAU, DT, ETA, NOISE, TH;
+           TEST_SIZE, TRAIN_SIZE, T;
+extern double TAU, ETA, NOISE, DICISION_BOUNDARY, XRATE;
+extern bool INTERNAL_CONN;
 extern Eigen::Matrix<double, 3, 1> W_COST;
 
 void logitnormal(double &v, const double w, const double lo, const double hi);

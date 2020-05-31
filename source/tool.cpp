@@ -17,8 +17,9 @@
 using Eigen::MatrixXd;
 
 int THREADS, ITERS, POPULATION, ELITES, CELLS, RGCS, EPOCHS,
-    TEST_SIZE, TRAIN_SIZE;
-double T, TAU, DT, ETA, NOISE, TH;
+    TEST_SIZE, TRAIN_SIZE, T;
+double TAU, ETA, NOISE, DICISION_BOUNDARY, XRATE;
+bool INTERNAL_CONN;
 Eigen::Matrix<double, 3, 1> W_COST;
 
 
@@ -95,14 +96,14 @@ void generate(MatrixXd &signals, MatrixXd &st, const int n, const int num_sigs)
         signals.row(i) = (signals.row(i).array() - mini) / (maxi - mini);
     }
 
-    if (TH != 0)
+    if (DICISION_BOUNDARY != 0)
     {
         MatrixXd labels = MatrixXd::Zero(n, num_sigs);
         labels.col(0) = st.col(T1) - st.col(S1);
 
         if (num_sigs == 2) labels.col(1) = st.col(T2) - st.col(S2);
 
-        st = (labels.array() >= TH).cast<double>();
+        st = (labels.array() >= DICISION_BOUNDARY).cast<double>();
     }
 }
 
@@ -138,7 +139,7 @@ double nn(const MatrixXd &x, const MatrixXd &y, MatrixXd &wih, MatrixXd &who,
     {
         MatrixXd delta(n, out_features);
         delta.noalias() = res / n;
-        if (TH == 0)
+        if (DICISION_BOUNDARY == 0)
             delta.array() *= yhat.array() * (1 - yhat.array());
 
         MatrixXd dwho(h_features, out_features);
@@ -159,7 +160,7 @@ double nn(const MatrixXd &x, const MatrixXd &y, MatrixXd &wih, MatrixXd &who,
         wih.noalias() -= ETA * dwih;
     }
 
-    if (TH == 0) // MSE
+    if (DICISION_BOUNDARY == 0) // MSE
         return res.array().pow(2).sum() / n / y.cols();
     else // BinaryCE
         return (-y.array() * log(yhat.array())
@@ -194,7 +195,7 @@ double model(double *auc, const MatrixXd &x, const MatrixXd &y, std::string *dis
     for (int i = 0; i < EPOCHS; i++)
     {
         loss(i) = nn(train_x, train_y, wih, who, hbias, yhat, true);
-        if (TH != 0)
+        if (DICISION_BOUNDARY != 0)
             acc(i) = accuracy(yhat, train_y);
     }
 
@@ -207,7 +208,7 @@ double model(double *auc, const MatrixXd &x, const MatrixXd &y, std::string *dis
         ss_loss << "Loss: \n" << loss << "\n";
         *disp += ss_loss.str();
 
-        if (TH != 0)
+        if (DICISION_BOUNDARY != 0)
         {
             std::stringstream ss_acc;
             ss_acc << "Accuracy: \n" << acc << "\n";
@@ -216,7 +217,7 @@ double model(double *auc, const MatrixXd &x, const MatrixXd &y, std::string *dis
     }
 
     double ret = nn(test_x, test_y, wih, who, hbias, yhat);
-    if (TH != 0)
+    if (DICISION_BOUNDARY != 0)
         ret = accuracy(yhat, test_y);
     return ret;
 }

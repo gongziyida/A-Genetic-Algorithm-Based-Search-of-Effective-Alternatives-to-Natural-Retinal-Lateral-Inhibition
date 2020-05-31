@@ -11,6 +11,7 @@ int LOSS = 0, AUC = 1, N_SYNAPSES = 2;
 void Retina::init(Genome &g)
 {
     n = g.n_types;
+    th = g.th;
 
     for (int i = 0; i < n; i++) n_cell[i] = g.n_cell[i];
 
@@ -19,8 +20,9 @@ void Retina::init(Genome &g)
     { // ganglion cells do not project
         for (int j = 0; j < n; j++)
         {
-            // internal connection only allowed at i != 0 or n-1
-            if (i == j && (i == 0 || i == n - 1)) continue;
+            // internal connections, if allowed, only exist at i != 0 or n-1
+            if (i == j && (!INTERNAL_CONN || i == 0 || i == n - 1))
+                continue;
 
             int ni = n_cell[i];
             int nj = n_cell[j];
@@ -90,12 +92,16 @@ void Retina::react(const MatrixXd &in, MatrixXd &out)
 
     int r = in.rows();
 
+    out = MatrixXd::Zero(r, n_cell[n-1]); // Clear
+
     for (int i = 0; i < n; i++)
     {
         s_old[i].noalias() = MatrixXd::Zero(r, n_cell[i]);
     }
 
-    for (double t = 0; t < T; t += DT)
+    MatrixXd spikes(r, n_cell[n-1]);
+
+    for (int t = 0; t < T; t++)
     {
         for (int i = 0; i < n; i++)
         {
@@ -105,7 +111,8 @@ void Retina::react(const MatrixXd &in, MatrixXd &out)
 
             for (int j = 0; j < n - 1; j++)
             { // Ganglion cells do not project back
-                if (j == i && (i == 0 || i == n - 1)) continue;
+                if (j == i && (!INTERNAL_CONN || i == 0 || i == n - 1))
+                    continue;
 
                 // ganglion cells only get input from receptors
                 if (i == n - 1 && j != 0) continue;
@@ -116,22 +123,26 @@ void Retina::react(const MatrixXd &in, MatrixXd &out)
             }
 
             // V_i = V_i + dt / tau * V_i'
-            s_new[i] = s_old[i] + DT/TAU * s_new[i];
+            s_new[i] = s_old[i] + 1/TAU * s_new[i];
         }
 
-        for (int i = 0; i < n; i++)
-        { // New becomes old
+        for (int i = 0; i < n; i++) // New becomes old
             s_old[i].noalias() = s_new[i];
-        }
+
+        spikes.noalias() = (s_new[n-1].array() >= th).cast<double>().matrix();
+        s_old[n-1].array() *= 1 - spikes.array(); // If fired, repolarize
+        out.noalias() += spikes; // Ganglion firing
     }
+    out.noalias() = out / (double)T; // firing rates
 
     // std::cout << s_old[n-1] << "\n********\n" << std::endl;
-    activation(s_old[n-1], out);
+    // activation(s_old[n-1], out); // Activate ganglion
 
-	MatrixXd o_max = out.rowwise().maxCoeff();
-	MatrixXd o_min = out.rowwise().minCoeff();
-	for (int i = 0; i < out.cols(); i++)
-        out.col(i) = (out.col(i) - o_min).array() / (o_max - o_min).array();
+    // // Normalize output
+	// MatrixXd o_max = out.rowwise().maxCoeff();
+	// MatrixXd o_min = out.rowwise().minCoeff();
+	// for (int i = 0; i < out.cols(); i++)
+    //     out.col(i) = (out.col(i) - o_min).array() / (o_max - o_min).array();
 }
 
 std::ostream& operator<<(std::ostream &os, const Retina &r)
@@ -140,7 +151,8 @@ std::ostream& operator<<(std::ostream &os, const Retina &r)
     {
         for (int j = 0; j < r.n; j++)
         {
-            if (i == j && (i == 0 || i == r.n - 1)) continue;
+            if (i == j && (!INTERNAL_CONN || i == 0 || i == r.n - 1))
+                continue;
             if (j == r.n - 1 && i != 0) continue;
 
             os << "# " << i << "->" << j << " "
@@ -154,6 +166,7 @@ std::ostream& operator<<(std::ostream &os, const Retina &r)
 Genome::Genome()
 {
     uniform(n_types, 2, MAX_TYPES);
+    logitnormal((th = 0.5), 0.5, 0.1, 1);
 
     n_cell[0] = CELLS;
 
@@ -168,11 +181,8 @@ Genome::Genome()
         dendrite[i] = binvec(d);
 
         polarity[i] = beta[i] = 0;
-
         logitnormal(polarity[i], 1.5, -1, 1);
-
         logitnormal((phi[i] = 5), 3, 0.1, 10);
-
         logitnormal(beta[i], 1.5, -1, 1);
     }
 
@@ -181,18 +191,18 @@ Genome::Genome()
 
 void Genome::organize()
 {
+    // Calculate intervals for receptors and ganglion cells
     intvl[0] = 1.0 / CELLS;
     intvl[n_types - 1] = 1.0 / n_cell[n_types - 1];
     costs *= 0;
+    total_cost = 0;
 
     if (n_types == 2) return;
 
+    // Check for void layers, i.e. with 0 cell or too small polarities
     for (int i = 1; i < n_types - 1; i++)
     {
-        if (polarity[i] < 0.001 && polarity[i] > 0.001)
-            polarity[i] = -0.001;
-
-        while (n_cell[i] == 0)
+        while (n_cell[i] == 0 || (polarity[i] > -0.01 && polarity[i] < 0.01))
         {
             for (int j = i; j < n_types - 1; j++)
             {
@@ -211,10 +221,11 @@ void Genome::organize()
 
 std::ostream & operator<<(std::ostream &os, const Genome &g)
 {
-    os << g.n_types << "\n";
+    os << "n_types ganglion_th test_loss auc n_synapses total_cost\n";
+    os << g.n_types << " " << g.th << " "
+       << g.costs << " " << g.total_cost << "\n";
 
-    os << "n_cell axon dendrite polarity phi beta intervals "
-          "loss auc n_synapses total_cost\n";
+    os << "n_cell axon dendrite polarity phi beta intervals\n";
 
     for (int i = 0; i < g.n_types; i++)
     {
@@ -222,8 +233,7 @@ std::ostream & operator<<(std::ostream &os, const Genome &g)
            << g.axon[i] << " " << g.dendrite[i] << " "
            << g.polarity[i] << " "
            << g.phi[i] << " " << g.beta[i] << " "
-           << g.intvl[i] << " "
-           << g.costs << " " << g.total_cost << "\n";
+           << g.intvl[i] << "\n";
     }
     return os;
 }

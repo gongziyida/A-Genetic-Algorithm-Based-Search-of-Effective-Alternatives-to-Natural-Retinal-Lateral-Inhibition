@@ -29,6 +29,8 @@ struct Genome
     // decay = exp(-((dist - beta) / phi)^2)
     double phi[MAX_TYPES];  // Scale, in [1, WIDTH)
     double beta[MAX_TYPES]; // Center, in [0, WIDTH)
+	// Ganglion cell firing threshold
+	double th;
 
 	// Intervals between interneurons of the same types
     double intvl[MAX_TYPES];
@@ -53,6 +55,7 @@ public:
 
 private:
 	int n; // Number of types
+	double th; // Ganglion cell firing threshold
 	int n_cell[MAX_TYPES];
 	MatrixXd w[MAX_TYPES-1][MAX_TYPES];
 };
