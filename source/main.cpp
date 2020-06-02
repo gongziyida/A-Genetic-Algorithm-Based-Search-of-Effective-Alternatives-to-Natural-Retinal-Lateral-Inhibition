@@ -10,11 +10,11 @@
 
 // thread_local int TID;
 
-void read_param()
+void read_param(char *param)
 {
     char aux[50];
 
-    std::ifstream f("PARAM");
+    std::ifstream f(param);
     if (f.is_open())
     {
         f >> aux >> THREADS >> aux >> ITERS >> aux >> POPULATION >> aux >> ELITES
@@ -29,7 +29,7 @@ void read_param()
         W_COST(LOSS) = 1 - W_COST(AUC) - W_COST(N_SYNAPSES);
     } else
     {
-        std::cout << "PARAM not found." << std::endl;
+        std::cout << "Parameters not found." << std::endl;
         std::exit(1);
     }
 }
@@ -49,14 +49,14 @@ void write(Genome *g, const int tid)
 {
     for (int i = 0; i < ELITES; i++)
     {
-        std::string nameg = "results/" + std::to_string(tid) + "_"
-                            + std::to_string(i) + "g.txt";
+        std::string nameg = FOLDER + "/" + std::to_string(tid) + "_"
+                            + std::to_string(i) + "g.tsv";
         std::ofstream fg(nameg);
         fg << g[i] << std::endl;
         fg.close();
 
-        std::string namer = "results/" + std::to_string(tid) + "_"
-                            + std::to_string(i) + "r.txt";
+        std::string namer = FOLDER + "/" + std::to_string(tid) + "_"
+                            + std::to_string(i) + "r.tsv";
         std::ofstream fr(namer);
         fr << *g[i].r << std::endl;
         fr.close();
@@ -73,8 +73,6 @@ void fork(int tid)
     Genome g[POPULATION];
     Retina r[POPULATION];
 
-    for (int i = 0; i < POPULATION; i++) r[i].init(g[i]);
-
     GA sim = GA(g, r);
     sim.run(sigs, st, tid);
 
@@ -83,14 +81,16 @@ void fork(int tid)
 
 int main(int argc, char *argv[])
 {
-    read_param();
+    if (argc != 3)
+    {
+        std::cerr << "./Simulation [folder] [parameters]" << std::endl;
+        std::exit(1);
+    }
+
+    read_param(argv[2]);
     // test_reading();
 
-    std::string folder = (argc == 2)? argv[1] : "results";
-
-    (void) std::system(("mkdir -p " + folder).c_str());
-    (void) std::system(("rm " + folder + "/*").c_str());
-    (void) std::system(("cp PARAM " + folder).c_str());
+    FOLDER = argv[1];
 
     std::thread ths[THREADS];
     for (int i = 0; i < THREADS; i++) ths[i] = std::thread(fork, i);

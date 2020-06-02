@@ -15,7 +15,7 @@ def save_img(fname):
     n_cells = {}
     connections = {}
 
-    with open(fname + '.txt', 'r') as f:
+    with open(fname + '.tsv', 'r') as f:
         lines = f.readlines()
 
         while i < len(lines):
@@ -103,7 +103,7 @@ if __name__ == '__main__':
     max_id = int(sys.argv[2])
     max_nn = int(sys.argv[3])
 
-    with open('PARAM', 'r') as f:
+    with open(os.path.join(path, 'param'), 'r') as f:
         param = f.readlines()
 
     iters = int(search(param, 'iter'))
@@ -111,7 +111,7 @@ if __name__ == '__main__':
 
     for i in range(max_id + 1):
         # load
-        log = np.loadtxt(os.path.join(path, 'log%d.txt' % i), dtype=np.float64)
+        log = np.loadtxt(os.path.join(path, 'log%d.tsv' % i), dtype=np.float64)
 
         fig, ax = plt.subplots(4, sharex='all')
         fig.set_size_inches(w=4, h=13)
@@ -145,13 +145,13 @@ if __name__ == '__main__':
         ax[-1].set_xlabel('Generation')
         ax[-1].set_ylabel('Cost')
 
-        fig.savefig('results/performance%d.png' % i, bbox_inches='tight')
+        fig.savefig(os.path.join(path, 'performance%d.png' % i), bbox_inches='tight')
 
         # fig, ax = plt.subplots(1)
         # fig.set_size_inches(8, 8)
 
         for j in range(max_nn):
-            fname = os.path.join(path, '%d_%dr.txt' % (i, j))
+            fname = os.path.join(path, '%d_%dr.tsv' % (i, j))
             cost, flag = save_img(fname)
             # ax.scatter(i, cost, color=flag)
         #

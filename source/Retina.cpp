@@ -155,9 +155,9 @@ std::ostream& operator<<(std::ostream &os, const Retina &r)
                 continue;
             if (j == r.n - 1 && i != 0) continue;
 
-            os << "# " << i << "->" << j << " "
+            os << "# " << i << "->" << j << "\t"
                << r.n_cell[i] << ":" << r.n_cell[j]
-               << "\n" << r.w[i][j] << "\n";
+               << "\n" << r.w[i][j].format(TSV) << "\n";
         }
     }
     return os;
@@ -202,7 +202,8 @@ void Genome::organize()
     // Check for void layers, i.e. with 0 cell or too small polarities
     for (int i = 1; i < n_types - 1; i++)
     {
-        while (n_cell[i] == 0 || (polarity[i] > -0.01 && polarity[i] < 0.01))
+        while (n_types > 2 && 
+              (n_cell[i] == 0 || (polarity[i] > -0.01 && polarity[i] < 0.01)))
         {
             for (int j = i; j < n_types - 1; j++)
             {
@@ -221,18 +222,18 @@ void Genome::organize()
 
 std::ostream & operator<<(std::ostream &os, const Genome &g)
 {
-    os << "n_types ganglion_th test_loss auc n_synapses total_cost\n";
-    os << g.n_types << " " << g.th << " "
-       << g.costs << " " << g.total_cost << "\n";
+    os << "n_types\tganglion_th\ttest_loss\tauc\tn_synapses\ttotal_cost\n";
+    os << g.n_types << "\t" << g.th << "\t"
+       << g.costs << "\t" << g.total_cost << "\n";
 
-    os << "n_cell axon dendrite polarity phi beta intervals\n";
+    os << "n_cell\taxon\tdendrite\tpolarity\tphi\tbeta\tintervals\n";
 
     for (int i = 0; i < g.n_types; i++)
     {
-        os << g.n_cell[i] << " "
-           << g.axon[i] << " " << g.dendrite[i] << " "
-           << g.polarity[i] << " "
-           << g.phi[i] << " " << g.beta[i] << " "
+        os << g.n_cell[i] << "\t"
+           << g.axon[i] << "\t" << g.dendrite[i] << "\t"
+           << g.polarity[i] << "\t"
+           << g.phi[i] << "\t" << g.beta[i] << "\t"
            << g.intvl[i] << "\n";
     }
     return os;

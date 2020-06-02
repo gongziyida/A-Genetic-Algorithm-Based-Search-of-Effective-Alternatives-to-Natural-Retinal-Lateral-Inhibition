@@ -20,8 +20,10 @@ int THREADS, ITERS, POPULATION, ELITES, CELLS, RGCS, EPOCHS,
     TEST_SIZE, TRAIN_SIZE, T;
 double TAU, ETA, NOISE, DICISION_BOUNDARY, XRATE;
 bool INTERNAL_CONN;
+std::string FOLDER;
 Eigen::Matrix<double, 3, 1> W_COST;
-
+Eigen::IOFormat TSV(4, Eigen::DontAlignCols, "\t", "\n", "", "", "", "");
+// Precision, Alignment, Separators (elements, rows), Pre/Suffix (row, matrix)
 
 void logitnormal(double &v, const double w, const double lo, const double hi)
 {
@@ -44,23 +46,55 @@ void uniform(int &v, const double lo, const double hi)
 	if (v == hi) v--;
 }
 
+void gaussian_filter(MatrixXd &signals, const MatrixXd &buffer, int n)
+{
+    const int r = (int)(CELLS * 0.1) - 1, len = r * 2 + 1;
+    double s = 0.5 * r;
+    s *= s;
+
+    double filter[len];
+    for (int x = -r, i = 0; x <= r; x++, i++)
+        filter[i] = exp(- x * x / s / 2) / sqrt(2 * M_PI * s);
+
+    for (int i = 0; i < n; i++)
+    {
+        double maxi = INT_MIN;
+        double mini = INT_MAX;
+
+        // Convolution & find min / max
+        for (int j = 0; j < CELLS; j++)
+        {
+            for (int k = 0, x = j - r; k < len; k++, x++)
+			{
+				if (x < 0 || x >= CELLS) continue;
+				signals(i, j) += filter[k] * buffer(i, x);
+			}
+
+            if (signals(i, j) > maxi) maxi = signals(i, j);
+            if (signals(i, j) < mini) mini = signals(i, j);
+        }
+        // Normalize
+        signals.row(i) = (signals.row(i).array() - mini) / (maxi - mini);
+    }
+}
+
 void generate(MatrixXd &signals, MatrixXd &st, const int n, const int num_sigs)
 {
     st = MatrixXd::Zero(n, num_sigs * 2);
     signals = MatrixXd::Zero(n, CELLS);
     MatrixXd buffer = MatrixXd::Random(n, CELLS) * NOISE;
-    double filter[7] = {0.065, 0.12, 0.175, 0.2, 0.175, 0.12, 0.065};
 
-    int t1max = (num_sigs == 1)? CELLS - 2 : CELLS * 0.8;
+    int t1max = (num_sigs == 1)? CELLS - 4 : CELLS * 0.8;
 
     for (int i = 0; i < n; i++)
     {
         // Randomly create two rectangles
         int s1, t1;
-		uniform(s1, 2, CELLS * 0.7 - 2);
+		uniform(s1, 4, CELLS * 0.6 - 2);
         uniform(t1, s1 + 2, t1max);
 
         buffer.block(i, s1, 1, t1 - s1).array() += 1;
+
 
         st(i, S1) = (double)s1 / CELLS;
         st(i, T1) = (double)t1 / CELLS;
@@ -76,25 +110,8 @@ void generate(MatrixXd &signals, MatrixXd &st, const int n, const int num_sigs)
             st(i, S2) = (double)s2 / CELLS;
             st(i, T2) = (double)t2 / CELLS;
         }
-
-        double maxi = INT_MIN;
-        double mini = INT_MAX;
-
-        // Convolution & find min / max
-        for (int j = 0; j < CELLS; j++)
-        {
-            for (int k = 0; k < 7; k++)
-            {
-                int l = j - k - 3;
-                signals(i, j) += l < 0 ? 0 : filter[k] * buffer(i, l);
-            }
-
-            if (signals(i, j) > maxi) maxi = signals(i, j);
-            if (signals(i, j) < mini) mini = signals(i, j);
-        }
-        // Normalize
-        signals.row(i) = (signals.row(i).array() - mini) / (maxi - mini);
     }
+	gaussian_filter(signals, buffer, n);
 
     if (DICISION_BOUNDARY != 0)
     {

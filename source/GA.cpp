@@ -19,8 +19,8 @@ GA::GA(Genome *genomes, Retina *retinas)
     for (int i = 0; i < POPULATION; i++) g[i].r = &r[i];
 
     children = new Genome[POPULATION - ELITES];
-    p1 = new int[POPULATION];
-    p2 = new int[POPULATION];
+    p1 = new int[POPULATION - ELITES];
+    p2 = new int[POPULATION - ELITES];
 }
 
 void GA::eval(const MatrixXd &x, const MatrixXd &y, bool disp)
@@ -103,8 +103,6 @@ void GA::crossover()
     // Crossover, results stored in buffer
     for (int i = 0; i < POPULATION - ELITES; i++)
     {
-        if (rand() % 100 < XRATE) continue; // crossover is binomial
-
         int n = g[bernoulli(p1[i], p2[i])].n_types;
 
         int p, q;
@@ -138,8 +136,10 @@ void GA::crossover()
     }
 
     // Copy back
-    for (int i = 0, k = 0; i < POPULATION - ELITES; i++, k++)
+    for (int i = 0, k = ELITES; i < POPULATION - ELITES; i++, k++)
     {
+        if (rand() % 100 > XRATE) continue; // crossover is binomial
+
         g[k].n_types = children[i].n_types;
         g[k].th = children[i].th;
 
@@ -212,7 +212,7 @@ void GA::mutation()
 void GA::run(const MatrixXd &x, const MatrixXd &y, const int tid = 0)
 {
     // Open a log
-    std::ofstream f("results/log" + std::to_string(tid) + ".txt");
+    std::ofstream f(FOLDER + "/" + "log" + std::to_string(tid) + ".tsv");
 
     for (int i = 0; i < ITERS; i++)
     {
@@ -231,7 +231,7 @@ void GA::run(const MatrixXd &x, const MatrixXd &y, const int tid = 0)
 
         // Output stats
         for (int j = 0; j < POPULATION; j++)
-            f << g[j].total_cost << " " << g[j].costs << "\n";
+            f << g[j].total_cost << "\t" << g[j].costs << "\n";
         f << "\n";
 
         selection();
