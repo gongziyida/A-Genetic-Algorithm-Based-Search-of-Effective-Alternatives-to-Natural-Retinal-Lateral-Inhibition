@@ -100,6 +100,28 @@ def search(li, s):
         if s in i:
             return i.split(' ')[1]
 
+def plot_dist(ax, log_k, title):
+    q = np.nanquantile(log_k, [0.25, 0.5, 0.75], axis=1)
+    log_k = np.ma.masked_invalid(log_k)
+
+    ax.set_title(title)
+
+    ax.plot(x, q[1], linestyle='dashed', label='median')
+    ax.fill_between(x, q[0], q[2], alpha=0.1) # Q1 and Q3
+
+    maxplot = ax.inset_axes([0.65, 0.85, 0.3, 0.1])
+    maxs = log_k.max(axis=1)
+    maxplot.plot(x, maxs, color='red')
+    maxplot.set_xticks([])
+    maxplot.set_yticks([maxs.min(), maxs.max()])
+
+    minplot = ax.inset_axes([0.65, 0.69, 0.3, 0.1])
+    mins = log_k.min(axis=1)
+    minplot.plot(x, mins, color='blue')
+    minplot.set_xticks([])
+    minplot.set_yticks([mins.min(), mins.max()])
+
+
 if __name__ == '__main__':
 
     path = sys.argv[1]
@@ -112,38 +134,21 @@ if __name__ == '__main__':
     iters = int(search(param, 'iter'))
     x = np.arange(1, iters + 1)
 
+    plot_titles = ('Total', 'Test Loss', 'AUC',
+                   'Number of Synapses', 'Number of Types',
+                   'Inhibitory to Excitatory Ratio')
+
     for i in range(max_id + 1):
         # load
         log = np.loadtxt(os.path.join(path, 'log%d.tsv' % i), dtype=np.float64)
 
-        fig, ax = plt.subplots(4, sharex='all')
-        fig.set_size_inches(w=4, h=13)
+        fig, ax = plt.subplots(3, 2, sharex='all')
+        fig.set_size_inches(w=7, h=13)
         fig.tight_layout()
 
-        for k, title in enumerate(('Total', 'Test Loss', 'AUC', 'Number of Synapses')):
+        for k, title in enumerate(plot_titles):
             log_k = log[:, k].reshape(iters, -1)
-
-            q = np.nanquantile(log_k, [0.25, 0.5, 0.75], axis=1)
-            log_k = np.ma.masked_invalid(log_k)
-
-            ax[k].set_title(title)
-
-            # ax.plot(x, log.min(axis=1), color='gray', linestyle='dotted', label='min')
-            ax[k].plot(x, q[1], linestyle='dashed', label='median')
-            ax[k].fill_between(x, q[0], q[2], alpha=0.1) # Q1 and Q3
-            # ax.legend(loc='upper right')
-
-            maxplot = ax[k].inset_axes([0.65, 0.85, 0.3, 0.1])
-            maxs = log_k.max(axis=1)
-            maxplot.plot(x, maxs, color='red')
-            maxplot.set_xticks([])
-            maxplot.set_yticks([maxs.min(), maxs.max()])
-
-            minplot = ax[k].inset_axes([0.65, 0.69, 0.3, 0.1])
-            mins = log_k.min(axis=1)
-            minplot.plot(x, mins, color='blue')
-            minplot.set_xticks([])
-            minplot.set_yticks([mins.min(), mins.max()])
+            plot_dist(ax[k%3, k//3], log_k)
 
         ax[-1].set_xlabel('Generation')
         ax[-1].set_ylabel('Cost')
