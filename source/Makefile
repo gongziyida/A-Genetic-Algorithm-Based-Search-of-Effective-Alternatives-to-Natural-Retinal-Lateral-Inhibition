@@ -6,7 +6,7 @@ OBJSD	= $(addprefix .obj/, $(OBJS))
 
 DEPS 	= tool.h Retina.h GA.h
 
-INCLUDES= -I${MKLROOT}/include -I.
+INCLUDES= -I/usr/include/eigen3 -I${MKLROOT}/include -I.
 
 LDFLAGS	= -L${MKLROOT}/lib/intel64 -Wl,--no-as-needed -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread
 
@@ -16,7 +16,7 @@ COMPFLAGS = -DMKL_ILP64 -m64 -I${MKLROOT}/include
 
 .obj/%.o: %.cpp $(DEPS)
 	@ mkdir -p .obj
-	g++ $(CFLAGS) $(COMPFLAGS) -c -o $@ $<
+	g++ $(CFLAGS) $(COMPFLAGS) $(INCLUDES) -c -o $@ $<
 
 Simulation: $(OBJSD) $(DEPS)
 	g++ $(CFLAGS) $(OBJSD) $(LDFLAGS) $(LDLIBS) -o $@ 

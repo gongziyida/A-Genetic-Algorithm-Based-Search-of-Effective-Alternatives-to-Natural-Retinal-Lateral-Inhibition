@@ -1,6 +1,6 @@
 #! /usr/bin/env bash
 
-. /opt/intel/compilers_and_libraries_2019.5.281/linux/mkl/bin/mklvars.sh intel64
+. ~/intel/compilers_and_libraries_2020.1.217/linux/mkl/bin/mklvars.sh intel64
 
 make release
 
