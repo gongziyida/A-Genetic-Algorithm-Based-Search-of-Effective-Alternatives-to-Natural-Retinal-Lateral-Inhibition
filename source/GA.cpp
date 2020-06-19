@@ -209,6 +209,20 @@ void GA::mutation()
     }
 }
 
+void GA::start_competition(const MatrixXd &x, const MatrixXd &y)
+{
+    for (int j = 0; j < POPULATION; j++)
+    {
+        g[j].organize();
+        g[j].r->init(g[j]);
+    }
+
+    eval(x, y);
+
+    // Sort the retinas
+    qsort(g, POPULATION, sizeof(Genome), comparator);
+}
+
 void GA::run(const MatrixXd &x, const MatrixXd &y, const int tid = 0)
 {
     // Open a log
@@ -218,20 +232,12 @@ void GA::run(const MatrixXd &x, const MatrixXd &y, const int tid = 0)
     {
         std::cout << "[" << tid << "]" << i + 1 << std::endl;
 
-        for (int j = 0; j < POPULATION; j++)
-        {
-            g[j].organize();
-            g[j].r->init(g[j]);
-        }
-
-        eval(x, y);
-
-        // Sort the retinas
-        qsort(g, POPULATION, sizeof(Genome), comparator);
+        start_competition(x, y);
 
         // Output stats
         for (int j = 0; j < POPULATION; j++)
-            f << g[j].total_cost << "\t" << g[j].costs << "\n";
+            f << g[j].total_cost << "\t" << g[j].costs
+              << g[j].n_types << g[j].i2e << "\n";
         f << "\n";
 
         selection();
@@ -240,8 +246,7 @@ void GA::run(const MatrixXd &x, const MatrixXd &y, const int tid = 0)
 	}
 
     // eval and sort the final retinas
-    eval(x, y);
-    qsort(g, POPULATION, sizeof(Genome), comparator);
+    start_competition(x, y);
 
 	f.close();
 

@@ -35,7 +35,7 @@ struct Genome
 	// Intervals between interneurons of the same types
     double intvl[MAX_TYPES];
 
-    int n_synapses;
+	double i2e;
     Eigen::Matrix<double, 1, 3> costs; // Fitness cost, the larger the worse
 	double total_cost;
 

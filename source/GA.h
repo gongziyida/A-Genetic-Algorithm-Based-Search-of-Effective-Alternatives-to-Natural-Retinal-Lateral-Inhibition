@@ -21,6 +21,7 @@ private:
     void selection();
     void crossover();
     void mutation();
+    void start_competition(const MatrixXd &x, const MatrixXd &y);
 };
 
 #endif

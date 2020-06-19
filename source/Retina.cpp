@@ -155,7 +155,7 @@ std::ostream& operator<<(std::ostream &os, const Retina &r)
                 continue;
             if (j == r.n - 1 && i != 0) continue;
 
-            os << "# " << i << "->" << j << "\t"
+            os << "# " << i << "->" << j << " "
                << r.n_cell[i] << ":" << r.n_cell[j]
                << "\n" << r.w[i][j].format(TSV) << "\n";
         }
@@ -196,14 +196,18 @@ void Genome::organize()
     intvl[n_types - 1] = 1.0 / n_cell[n_types - 1];
     costs *= 0;
     total_cost = 0;
+    i2e = 1.0 / CELLS;
 
     if (n_types == 2) return;
+
+    double inh = 0, exc = CELLS;
 
     // Check for void layers, i.e. with 0 cell or too small polarities
     for (int i = 1; i < n_types - 1; i++)
     {
-        while (n_types > 2 && 
-              (n_cell[i] == 0 || (polarity[i] > -0.01 && polarity[i] < 0.01)))
+        while (n_types > 2 &&
+              (n_cell[i] == 0 ||
+                  (polarity[i] > -0.01 && polarity[i] < 0.01)))
         {
             for (int j = i; j < n_types - 1; j++)
             {
@@ -217,7 +221,12 @@ void Genome::organize()
             n_types--;
         }
         intvl[i] = 1.0 / n_cell[i];
+
+        if (polarity[i] < 0) inh += n_cell[i];
+        else                 exc += n_cell[i];
     }
+
+    i2e = inh / exc;
 }
 
 std::ostream & operator<<(std::ostream &os, const Genome &g)
