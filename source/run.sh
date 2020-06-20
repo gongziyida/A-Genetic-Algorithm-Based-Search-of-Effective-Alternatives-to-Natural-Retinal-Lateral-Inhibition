@@ -4,8 +4,14 @@
 
 make release
 
-mkdir -p test
-cp param_template test/param
+DIRNAME=noise_lvl_nointernal
+mkdir -p ../$DIRNAME
 
-./Simulation test param_template
-python visualization.py test/ 0 0
+for p in $DIRNAME/*;
+do
+  folder=../$DIRNAME/${p##*/}
+  mkdir -p $folder
+  cp $p $folder/param
+  ./Simulation $folder $folder/param
+  ./visualization.py $folder/ 2 0
+done
