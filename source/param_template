@@ -1,7 +1,7 @@
-threads 2
-max_iterations 50
+threads 1
+max_iterations 5
 population 200
-num_elites 25
+num_elites 20
 sim_time 20
 tau 10
 eta 0.25

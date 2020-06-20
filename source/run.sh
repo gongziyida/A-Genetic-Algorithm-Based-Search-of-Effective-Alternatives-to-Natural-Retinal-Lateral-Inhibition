@@ -4,15 +4,8 @@
 
 make release
 
-mkdir -p reg
-cp param_regression reg/param
-mkdir -p cla
-cp param_classification cla/param
+mkdir -p test
+cp param_template test/param
 
-echo "Running regression"
-./Simulation reg param_regression
-python3 visualization.py reg/ 1 0
-
-echo "Running classification"
-./Simulation cla param_classification
-python3 visualization.py cla/ 1 0
+./Simulation test param_template
+python visualization.py test/ 0 0

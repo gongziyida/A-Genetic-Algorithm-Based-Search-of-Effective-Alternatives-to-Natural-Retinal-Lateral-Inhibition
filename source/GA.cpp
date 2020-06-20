@@ -236,8 +236,8 @@ void GA::run(const MatrixXd &x, const MatrixXd &y, const int tid = 0)
 
         // Output stats
         for (int j = 0; j < POPULATION; j++)
-            f << g[j].total_cost << "\t" << g[j].costs
-              << g[j].n_types << g[j].i2e << "\n";
+            f << g[j].total_cost << "\t" << g[j].costs.format(TSV) << "\t"
+              << g[j].n_types << "\t" << g[j].i2e << "\n";
         f << "\n";
 
         selection();

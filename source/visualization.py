@@ -134,26 +134,27 @@ if __name__ == '__main__':
     iters = int(search(param, 'iter'))
     x = np.arange(1, iters + 1)
 
-    plot_titles = ('Total', 'Test Loss', 'AUC',
+    plot_titles = ('Total Loss', 'Test Loss', 'AUC',
                    'Number of Synapses', 'Number of Types',
                    'Inhibitory to Excitatory Ratio')
 
     for i in range(max_id + 1):
         # load
-        log = np.loadtxt(os.path.join(path, 'log%d.tsv' % i), dtype=np.float64)
+        log = np.loadtxt(os.path.join(path, 'log%d.tsv' % i),
+                         dtype=np.float64)
 
         fig, ax = plt.subplots(3, 2, sharex='all')
-        fig.set_size_inches(w=7, h=13)
-        fig.tight_layout()
+        fig.set_size_inches(w=10, h=13)
 
         for k, title in enumerate(plot_titles):
             log_k = log[:, k].reshape(iters, -1)
-            plot_dist(ax[k%3, k//3], log_k)
+            plot_dist(ax[k%3, k//3], log_k, title)
 
-        ax[-1].set_xlabel('Generation')
-        ax[-1].set_ylabel('Cost')
+        fig.text(0.5, 0.0, 'Generation', ha='center')
 
-        fig.savefig(os.path.join(path, 'performance%d.png' % i), bbox_inches='tight')
+        fig.tight_layout()
+        fig.savefig(os.path.join(path, 'performance%d.png' % i),
+                    bbox_inches='tight')
 
         # fig, ax = plt.subplots(1)
         # fig.set_size_inches(8, 8)
