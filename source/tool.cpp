@@ -188,7 +188,7 @@ inline double accuracy(const MatrixXd &yhat, const MatrixXd &y)
 {
     int n = y.rows();
     MatrixXd yhat_bin(n, 1);
-    yhat_bin.noalias() = (yhat.array() > 0.5).cast<double>().matrix();
+    yhat_bin.noalias() = (yhat.array() > DICISION_BOUNDARY).cast<double>().matrix();
     return (yhat_bin.array() == y.array()).cast<double>().sum() / n;
 }
 

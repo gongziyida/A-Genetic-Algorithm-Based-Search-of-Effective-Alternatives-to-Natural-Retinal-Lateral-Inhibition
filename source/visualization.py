@@ -8,6 +8,11 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import networkx as nx
 
+plt.rcParams['axes.spines.right'] = False
+plt.rcParams['axes.spines.top'] = False
+plt.rcParams["font.family"] = 'Times New Roman'
+plt.rcParams["font.size"] = '12'
+
 COMMON = 'red'
 NO_INTERNEURON = 'black'
 NO_NON_TRIVIAL_W = 'gray'
@@ -100,33 +105,37 @@ def search(li, s):
         if s in i:
             return i.split(' ')[1]
 
-def plot_dist(ax, log_k, title):
-    q = np.nanquantile(log_k, [0.25, 0.5, 0.75], axis=1)
-    log_k = np.ma.masked_invalid(log_k)
+def plot_dist(ax, log_k, title, p):
+    # ins = ax.inset_axes([0.8, 0.75, 0.2, 0.2])
+    # ins.set_xticks([])
+    # ins.patch.set_alpha(0.5)
 
-    ax.set_title(title)
+    for i in range(log_k.shape[0]):
 
-    ax.plot(x, q[1], linestyle='dashed', label='median')
-    ax.fill_between(x, q[0], q[2], alpha=0.1) # Q1 and Q3
+        if p == 0:
+            minplot = ax[0]
+            medplot = ax[1]
+            minplot.set_ylabel(title)
 
-    maxplot = ax.inset_axes([0.65, 0.85, 0.3, 0.1])
-    maxs = log_k.max(axis=1)
-    maxplot.plot(x, maxs, color='red')
-    maxplot.set_xticks([])
-    maxplot.set_yticks([maxs.min(), maxs.max()])
+            log_ki = np.ma.masked_invalid(log_k[i])
+            mins = log_ki.min(axis=1)
+            minplot.plot(x, mins)
 
-    minplot = ax.inset_axes([0.65, 0.69, 0.3, 0.1])
-    mins = log_k.min(axis=1)
-    minplot.plot(x, mins, color='blue')
-    minplot.set_xticks([])
-    minplot.set_yticks([mins.min(), mins.max()])
+        elif p == 1:
+            medplot = ax
+            medplot.set_ylabel(title)
 
+        q = np.nanquantile(log_k[i], [0.25, 0.5, 0.75], axis=1)
+        medplot.plot(x, q[1])
+        medplot.fill_between(x, q[0], q[2], alpha=0.1) # Q1&Q3
+
+    #ins.set_yticks([])
 
 if __name__ == '__main__':
 
     path = sys.argv[1]
     max_id = int(sys.argv[2])
-    max_nn = int(sys.argv[3])
+    # max_nn = int(sys.argv[3])
 
     with open(os.path.join(path, 'param'), 'r') as f:
         param = f.readlines()
@@ -134,34 +143,45 @@ if __name__ == '__main__':
     iters = int(search(param, 'iter'))
     x = np.arange(1, iters + 1)
 
-    plot_titles = ('Total Loss', 'Test Loss', 'AUC',
-                   'Number of Synapses', 'Number of Types',
-                   'Inhibitory to Excitatory Ratio')
+    plot_titles = ('Survival Cost', 'Number of Synapses',
+                   'Inhibition to Excitation Ratio')
+
+    logs = []
 
     for i in range(max_id + 1):
         # load
         log = np.loadtxt(os.path.join(path, 'log%d.tsv' % i),
                          dtype=np.float64)
+        logs.append(log[:, [1, 3, 5]])
 
-        fig, ax = plt.subplots(3, 2, sharex='all')
-        fig.set_size_inches(w=10, h=13)
+    logs = np.stack(logs, axis=0)
 
-        for k, title in enumerate(plot_titles):
-            log_k = log[:, k].reshape(iters, -1)
-            plot_dist(ax[k%3, k//3], log_k, title)
+    fig, ax = plt.subplots(2, 2, sharex='all', figsize=(5, 5))
+    offset = 0
 
-        fig.text(0.5, 0.0, 'Generation', ha='center')
+    for k, title in enumerate(plot_titles):
+        # order = 'min_main' if k == 0 else 'med_main'
+        log_k = logs[..., k].reshape(logs.shape[0], iters, -1)
 
-        fig.tight_layout()
-        fig.savefig(os.path.join(path, 'performance%d.png' % i),
-                    bbox_inches='tight')
+        if k == 0:
+            p = 0
+            plot_dist(ax[p], log_k, title, p)
+        else:
+            p = 1
+            plot_dist(ax[p, k-p], log_k, title, p)
+
+    fig.text(0.5, 0.0, 'Generation', ha='center')
+
+    fig.tight_layout()
+    fig.savefig(os.path.join(path, 'performance.pdf'),
+                bbox_inches='tight')
 
         # fig, ax = plt.subplots(1)
         # fig.set_size_inches(8, 8)
 
-        for j in range(max_nn):
-            fname = os.path.join(path, '%d_%dr.tsv' % (i, j))
-            cost, flag = save_img(fname)
+        #for j in range(max_nn):
+        #    fname = os.path.join(path, '%d_%dr.tsv' % (i, j))
+        #    cost, flag = save_img(fname)
             # ax.scatter(i, cost, color=flag)
         #
         # ax.set_xlabel('Rank')

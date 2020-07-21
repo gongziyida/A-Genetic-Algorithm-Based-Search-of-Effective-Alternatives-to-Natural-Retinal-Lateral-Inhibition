@@ -4,7 +4,7 @@
 
 make release
 
-DIRNAME=noise_lvl_nointernal
+DIRNAME=cla
 mkdir -p ../$DIRNAME
 
 for p in $DIRNAME/*;
@@ -13,5 +13,5 @@ do
   mkdir -p $folder
   cp $p $folder/param
   ./Simulation $folder $folder/param
-  ./visualization.py $folder/ 2 0
+  ./visualization.py $folder/ 2
 done
