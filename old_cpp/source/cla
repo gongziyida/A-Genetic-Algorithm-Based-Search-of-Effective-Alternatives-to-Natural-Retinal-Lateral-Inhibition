@@ -1,0 +1,14 @@
+threads 2
+max_iterations 10
+population 150
+num_elites 15
+crossover_rate 50
+max_num_cells 50
+sim_time 200
+tau 10
+eta 0.5
+epochs 10
+noise_level 0.2
+train_size 500
+test_size 100
+label_thre 0.3
